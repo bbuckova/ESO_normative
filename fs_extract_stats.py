@@ -6,7 +6,7 @@ import numpy as np
 # go through dirs in thos directory
 #rootdir = '/home/barbora/Documents/Projects/Normative_Models/ESO/temp'
 rootdir = '/freefs/freeSurfer/HCP_NUDZ_v7_ESO/A_FS_wo_preFS_all_links_20210907'
-save_res = '/hydra-db/hydra_io/vypocty/buckova'
+save_res = '/hydra-db/hydra_io/vypocty/buckova/PCN/tonda_fs_stats'
 os.chdir(rootdir)
 
 # everythiink relevant is called ESO*
