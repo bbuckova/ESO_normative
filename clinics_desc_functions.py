@@ -15,7 +15,7 @@ def merge_and_reorder(clinics, neuro):
     neuro = pandas dataframe with freesurfer information     
     """
     # Merge the two dataframes
-    clinics_to_merge = clinics[["Category","Sex", "Birth", 'Age_at_Visit', "Inclusion", "No_Visit", "Right_Handed"]]
+    clinics_to_merge = clinics
     data = pd.concat([clinics_to_merge, neuro], axis=1, join="inner")
 
     # Reordering columns here, so that we can compare the right and left hemisphere better
@@ -31,11 +31,13 @@ def merge_and_reorder(clinics, neuro):
     return(data)
 
 
-def desc_boxplots(data, fs_suffix, images_dir):
+def desc_boxplots(data, fs_suffix, images_dir, **kwargs):
     # Plots boxplots of freesurfer ROIs across categories (Control, Patient, Sibling, High risk)
     # The images are saved
     # desc_boxplots(data, fs_suffix, images_dir)
     
+    save_img = kwargs.get('save_img', True)
+
     matplotlib.rcParams['figure.figsize'] = [15.7, 8.27]
     matplotlib.rcParams['savefig.dpi'] = 300
     matplotlib.rcParams["figure.titlesize"] = "xx-large"
@@ -44,20 +46,29 @@ def desc_boxplots(data, fs_suffix, images_dir):
     sns.set_style("whitegrid")
     sns.color_palette("Spectral", as_cmap=True)
 
+    # get indexes of fsvars
+    i_start = list(data.columns).index("rh_bankssts")
+    i_end = list(data.columns).index("lh_insula")+1
+
     # Set axes - to be comparable
-    how_much_to_round = (len(str(data.iloc[:,range(7,data.shape[1])].max().max()).split('.')[0])-1)*-1
-    ymax = round(data.iloc[:,range(7,data.shape[1])].max().max(), how_much_to_round)
+    how_much_to_round = (len(str(data.iloc[:,range(i_start,i_end)].max().max()).split('.')[0])-1)*-1
+    ymax = round(data.iloc[:,range(i_start,i_end)].max().max(), how_much_to_round)
 
     # Plot boxplots across categories
-    fig, axes = plt.subplots(4,1, sharex=True,figsize=(15,12))
+    nplots = len(data["Category"].unique())
+    fig, axes = plt.subplots(nplots,1, sharex=True,figsize=(15,nplots*3))
     fig.suptitle('Visit 1:' +fs_suffix)
 
     for ipic, cat in enumerate(data["Category"].unique()):
         axes[ipic].set_title(cat+' (n = ' + str(data["Category"].value_counts()[ipic])+')')
-        g = sns.boxplot(ax = axes[ipic], data=data[(data["Category"] == cat)].iloc[:,range(7,data.shape[1])], palette="Spectral", )
+        g = sns.boxplot(ax = axes[ipic], data=data[(data["Category"] == cat)].iloc[:,range(i_start,i_end)], palette="Spectral" )
         g.set_xticklabels(g.get_xticklabels(),rotation = 90)
         g.set(ylim=(0,ymax))
         sns.despine()
 
     # save image
-    fig.savefig(os.path.join(images_dir, ('01_bp_' + fs_suffix + '.png')))   
+    if save_img:
+        fig.savefig(os.path.join(images_dir, ('01_bp_' + fs_suffix + '.png')))   
+
+
+
