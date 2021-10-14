@@ -105,12 +105,9 @@ def en_qc(data, **kwargs):
 
 
 def prepare_data(data_final, transformation, nm_dir, **kwargs):
-
+    # return(cov_norm, cov_pat, sfeat_norm, sfeat_test) = prepare_data(data_final, transformation, nm_dir, **kwargs)
+    
     features = kwargs.get('features', False)
-
-    # Create the directory with results
-    nm_dir = os.path.join(main_dir, fs_var+'_'+transformation)
-    os.makedirs(nm_dir, exist_ok=True)
 
     ## Covariates - Age and Sex
     # Controls
@@ -129,13 +126,14 @@ def prepare_data(data_final, transformation, nm_dir, **kwargs):
         elif 'Std' in features:
             idc = [s for s in list(data_final.columns) if 'std_' in s]
         elif 'Vol' in features:
-            idc = [s for s in list(data_final.columns) if 'novx_' in s]
+            idc = [s for s in list(data_final.columns) if 'nvox_' in s]
         else:
             print(('Something is wrong with:' + features + 'Are you using a wrong feature name?'))
 
-        feat_norm = data_final.loc[data_final['Category']=='Control', data_final.columns[idc]]
-        feat_test = data_final.loc[data_final['Category']=='Patient', data_final.columns[idc]]
-        idc.to_csv(os.path.join(nm_dir,'colnames.txt'), sep=' ', header=False, index=False)
+        feat_norm = data_final[idc].loc[data_final['Category']=='Control']
+        feat_test = data_final[idc].loc[data_final['Category']=='Patient']
+        df_idc = pd.DataFrame(idc)
+        df_idc.to_csv(os.path.join(nm_dir,'colnames.txt'), sep=' ', header=False, index=False)
     
     else:
         ## Features - Desikan Killiany Atlas
@@ -148,6 +146,9 @@ def prepare_data(data_final, transformation, nm_dir, **kwargs):
     ## Apply transformation ['no', 'zscore', 'scale']
     if transformation == 'no':
         print('No transformation was applied')
+        sfeat_norm = feat_norm
+        sfeat_test = feat_test
+
         feat_norm.to_csv(os.path.join(nm_dir,'feat_norm.txt'), sep=' ', header=False, index=False)
         feat_test.to_csv(os.path.join(nm_dir,'feat_test.txt'), sep=' ', header=False, index=False)
     
@@ -170,3 +171,48 @@ def prepare_data(data_final, transformation, nm_dir, **kwargs):
     else:
         print("Wrong transformation")
 
+    return(cov_norm, cov_pat, sfeat_norm, sfeat_test)
+
+
+def plot_quality(nm_dir, **kwargs):
+    
+    show_img = kwargs.get('show_img', True)
+
+    ## Load and plot the quality measures
+    # Standardized Mean Squared Error
+    SMSE = pd.read_csv(os.path.join(nm_dir, 'SMSE_estimate.txt'), header=None)
+    # Explained Variance
+    EXPV = pd.read_csv(os.path.join(nm_dir, 'EXPV_estimate.txt'), header=None)
+    # Mean Standardized Log Loss
+    MSLL = pd.read_csv(os.path.join(nm_dir, 'MSLL_estimate.txt'), header=None)
+    # Correlation
+    Rho = pd.read_csv(os.path.join(nm_dir, 'Rho_estimate.txt'), header=None)
+    pRho = pd.read_csv(os.path.join(nm_dir, 'pRho_estimate.txt'), header=None)
+
+    # Put everything into dataframe
+    measures = ['SMSE', 'EXPV', 'MSLL', 'Rho', 'pRho']
+    nmeasures = pd.concat([SMSE,EXPV,MSLL,Rho,pRho], axis=1)
+    nmeasures.columns = measures
+
+    # Plotting
+    if show_img:
+        sns.set_theme(style = 'white')
+        fig, axes = plt.subplots(2,3, sharex=False, figsize=(10,7))
+
+        j=0
+        for i, imeasure in enumerate(measures):
+            
+            i=np.divmod(i,3)[1]
+
+            g = sns.histplot(data=nmeasures[imeasure], ax=axes[j,i])
+            g.set_title(imeasure)
+            
+            if i==2:
+                j=1
+
+        fig.tight_layout()
+        sns.despine()
+        plt.show()
+    
+    # wrap up
+    return(nmeasures)
