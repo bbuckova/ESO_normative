@@ -102,3 +102,71 @@ def en_qc(data, **kwargs):
     id_to_remove = id[id].index
     data_final = data.drop(axis=0, index=id_to_remove)
     return(data_final)
+
+
+def prepare_data(data_final, transformation, nm_dir, **kwargs):
+
+    features = kwargs.get('features', False)
+
+    # Create the directory with results
+    nm_dir = os.path.join(main_dir, fs_var+'_'+transformation)
+    os.makedirs(nm_dir, exist_ok=True)
+
+    ## Covariates - Age and Sex
+    # Controls
+    cov_norm = data_final.loc[data_final['Category']=='Control', ["Age_at_Visit","Sex"]]
+    cov_norm.to_csv(os.path.join(nm_dir,'cov_norm.txt'), sep=' ', header= False, index=False)
+    
+    # Patients
+    cov_pat = data_final.loc[data_final['Category']=='Patient', ["Age_at_Visit","Sex"]]
+    cov_pat.to_csv(os.path.join(nm_dir,'cov_test.txt'), sep=' ', header= False, index=False)
+
+    ## Features 'IC based features'
+    if 'IC' in features:
+
+        if 'Mean' in features:
+            idc = [s for s in list(data_final.columns) if 'mean_' in s]
+        elif 'Std' in features:
+            idc = [s for s in list(data_final.columns) if 'std_' in s]
+        elif 'Vol' in features:
+            idc = [s for s in list(data_final.columns) if 'novx_' in s]
+        else:
+            print(('Something is wrong with:' + features + 'Are you using a wrong feature name?'))
+
+        feat_norm = data_final.loc[data_final['Category']=='Control', data_final.columns[idc]]
+        feat_test = data_final.loc[data_final['Category']=='Patient', data_final.columns[idc]]
+        idc.to_csv(os.path.join(nm_dir,'colnames.txt'), sep=' ', header=False, index=False)
+    
+    else:
+        ## Features - Desikan Killiany Atlas
+        # indices of DK
+        i_start = list(data_final.columns).index("rh_bankssts")
+        i_end = list(data_final.columns).index("lh_insula")+1
+        feat_norm = data_final.loc[data_final['Category']=='Control', data_final.columns[range(i_start,i_end)]]
+        feat_test = data_final.loc[data_final['Category']=='Patient', data_final.columns[range(i_start,i_end)]]
+        
+    ## Apply transformation ['no', 'zscore', 'scale']
+    if transformation == 'no':
+        print('No transformation was applied')
+        feat_norm.to_csv(os.path.join(nm_dir,'feat_norm.txt'), sep=' ', header=False, index=False)
+        feat_test.to_csv(os.path.join(nm_dir,'feat_test.txt'), sep=' ', header=False, index=False)
+    
+    elif transformation == 'zscore':
+        print('Z-transformation was applied')
+        sfeat_norm = (feat_norm-feat_norm.mean())/feat_norm.std()
+        sfeat_test = (feat_test-feat_norm.mean())/feat_norm.std()
+        
+        sfeat_norm.to_csv(os.path.join(nm_dir,'feat_norm.txt'), sep=' ', header=False, index=False)
+        sfeat_test.to_csv(os.path.join(nm_dir,'feat_test.txt'), sep=' ', header=False, index=False)
+    
+    elif transformation == 'scale': # use this for mm^3
+        print('Scaling applied')
+        sfeat_norm = feat_norm/1000
+        sfeat_test = feat_test/1000
+        
+        sfeat_norm.to_csv(os.path.join(nm_dir,'feat_norm.txt'), sep=' ', header=False, index=False)
+        sfeat_test.to_csv(os.path.join(nm_dir,'feat_test.txt'), sep=' ', header=False, index=False)
+        
+    else:
+        print("Wrong transformation")
+
