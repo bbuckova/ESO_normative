@@ -70,5 +70,27 @@ def desc_boxplots(data, fs_suffix, images_dir, **kwargs):
     if save_img:
         fig.savefig(os.path.join(images_dir, ('01_bp_' + fs_suffix + '.png')))   
 
+def en_qc(data):
+    ## QC - based on the euler number
+    # output from freesurfer = no.holes (computation based on the euler number)
+    # EN = 2-2*no.holes
+    #data_final = en_qc(data)
+    
+    indices = [i for i, s in enumerate(list(data.columns)) if 'Holes' in s]
+    en_mean = (data.iloc[:,indices[0]]*-2+2 + data.iloc[:,indices[1]]*-2+2)/2
+    site_median = en_mean.median()
+    en_final = np.sqrt(np.absolute((en_mean-site_median)*(-1)))
 
+    # Plotting estimated TIV across Patients/Controls and Males/Females
+    sns.set_theme(style="whitegrid")
+    fig, axes = plt.subplots(1, sharex=True,figsize=(7,3))
+    matplotlib.rcParams["figure.titlesize"] = "large"
+    fig.suptitle('Euler numbers (sqrt(abs(centered)))')
+    g = sns.boxplot(data=en_final, orient='h', linewidth=2.5)
+    sns.despine()
 
+    # remove the outliers
+    id = en_final>10
+    id_to_remove = id[id].index
+    data_final = data.drop(axis=0, index=id_to_remove)
+    return(data_final)
