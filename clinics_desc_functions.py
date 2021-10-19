@@ -216,3 +216,74 @@ def plot_quality(nm_dir, **kwargs):
     
     # wrap up
     return(nmeasures)
+
+
+# confidence interval calculation at x_forward
+def myround(x, base=10):
+    return ([base * round(i/base) for i in x ])
+
+def confidence_interval(s2,x,x_forward,z):
+  CI=np.zeros((len(x_forward),s2.shape[1]))
+  for i,xdot in enumerate(x_forward):
+    ci_inx=np.isin(myround(x),xdot)
+    S2=s2[ci_inx]
+    S_hat=np.mean(S2,axis=0)
+    n=S2.shape[0]
+    CI[i,:]=z*np.power(S_hat/n,.5)
+  return CI
+
+# trajectory plotting
+def trajectory_plotting(cov_forw, nm_dir):
+
+    # load forward predictions
+    forward_yhat = pd.read_csv(os.path.join(nm_dir,'yhat_forward.txt'), sep = ' ', header=None)
+    feat_norm = pd.read_csv(os.path.join(nm_dir,'feat_norm.txt'), sep = ' ',header=None)
+    cov_norm = pd.read_csv(os.path.join(nm_dir,'cov_norm.txt'), sep = ' ',header=None)
+    feature_names = pd.read_csv(os.path.join(nm_dir,'colnames.txt'), sep = ' ',header=None).to_numpy()
+    feature_names = [i[0] for i in feature_names]
+    sex_covariates=['Female','Male']
+    os.chdir(nm_dir)
+
+    for i, sex in enumerate(sex_covariates):
+
+        yhat_forward=forward_yhat.values
+        y_params = int(cov_forw.shape[0]/2)
+        yhat_forward=yhat_forward[y_params*i:y_params*(i+1)]
+        x_forward=list(cov_forw.iloc[range(0,y_params),0])
+
+        # Find the index of the data exclusively for one sex. Female: 0; Male: 1;
+        idx=np.where(cov_norm[1]==i)[0]
+        x=cov_norm.values[idx,0]
+
+        # read data, filter features
+        y = pd.read_csv(os.path.join(nm_dir,'feat_norm.txt'), sep = ' ', header=None)
+        y = y.values[idx]
+
+        # confidence Interval yhat+ z *(std/n^.5)-->.95 % CI:z=1.96, 99% CI:z=2.58
+        s2= pd.read_csv(os.path.join(nm_dir, 'ys2_estimate.txt'), sep = ' ', header=None)
+        s2=s2.values[idx]
+
+        CI_95=confidence_interval(s2,x,x_forward,1.96)
+        CI_99=confidence_interval(s2,x,x_forward,2.58)
+
+        CI_95[CI_95 > 1e+04] = np.nan
+        CI_99[CI_99 > 1e+04] = np.nan
+
+        # Create a trajectroy for each point    
+        for j,name in enumerate(feature_names[0:4]):
+            fig=plt.figure()
+            ax=fig.add_subplot(111)
+            ax.plot(x_forward,yhat_forward[:,j], linewidth=4, label='Normative trejactory')
+
+
+            ax.plot(x_forward,CI_95[:,j]+yhat_forward[:,j], linewidth=2,linestyle='--',c='g', label='95% confidence interval')
+            ax.plot(x_forward,-CI_95[:,j]+yhat_forward[:,j], linewidth=2,linestyle='--',c='g')
+
+            ax.plot(x_forward,CI_99[:,j]+yhat_forward[:,j], linewidth=1,linestyle='--',c='k', label='99% confidence interval')
+            ax.plot(x_forward,-CI_99[:,j]+yhat_forward[:,j], linewidth=1,linestyle='--',c='k')
+
+            ax.scatter(x,y[:,j],c='r', label=name)
+            plt.legend(loc='upper left')
+            plt.title('Normative trejectory of' +name+' in '+ sex +' cohort')
+            plt.show()
+            plt.close()
