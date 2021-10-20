@@ -6,6 +6,11 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib
 
+from enigmatoolbox.utils.parcellation import parcel_to_surface
+from enigmatoolbox.plotting import plot_cortical, plot_subcortical
+from enigmatoolbox.utils.useful import reorder_sctx
+
+
 def merge_and_reorder(clinics, neuro):
     """
     Function that creates various datasets based on the freesurfer input
@@ -140,6 +145,8 @@ def prepare_data(data_final, transformation, nm_dir, **kwargs):
         # indices of DK
         i_start = list(data_final.columns).index("rh_bankssts")
         i_end = list(data_final.columns).index("lh_insula")+1
+        df_idc = pd.DataFrame(data_final.columns[range(i_start,i_end)].to_numpy())
+        df_idc.to_csv(os.path.join(nm_dir,'colnames.txt'), sep=' ', header=False, index=False)
         feat_norm = data_final.loc[data_final['Category']=='Control', data_final.columns[range(i_start,i_end)]]
         feat_test = data_final.loc[data_final['Category']=='Patient', data_final.columns[range(i_start,i_end)]]
         
@@ -177,13 +184,17 @@ def prepare_data(data_final, transformation, nm_dir, **kwargs):
 def plot_quality(nm_dir, **kwargs):
     
     show_img = kwargs.get('show_img', True)
+    save_img = kwargs.get('save_img', False)
+    fs_var =  kwargs.get('fs_var', None)
+    images_dir = kwargs.get('images_dir', None)
+    transformation =  kwargs.get('transformation', None)
 
     ## Load and plot the quality measures
-    # Standardized Mean Squared Error
+    # Standardized Mean Squared Error (closer 0 = better)
     SMSE = pd.read_csv(os.path.join(nm_dir, 'SMSE_estimate.txt'), header=None)
-    # Explained Variance
+    # Explained Variance (closer 1 = betetr)
     EXPV = pd.read_csv(os.path.join(nm_dir, 'EXPV_estimate.txt'), header=None)
-    # Mean Standardized Log Loss
+    # Mean Standardized Log Loss (the negative, the better)
     MSLL = pd.read_csv(os.path.join(nm_dir, 'MSLL_estimate.txt'), header=None)
     # Correlation
     Rho = pd.read_csv(os.path.join(nm_dir, 'Rho_estimate.txt'), header=None)
@@ -213,6 +224,9 @@ def plot_quality(nm_dir, **kwargs):
         fig.tight_layout()
         sns.despine()
         plt.show()
+        
+        if save_img:
+            fig.savefig(os.path.join(images_dir, ('03_hist' + fs_var + '_'+transformation+'.png')))
     
     # wrap up
     return(nmeasures)
@@ -270,7 +284,7 @@ def trajectory_plotting(cov_forw, nm_dir):
         CI_99[CI_99 > 1e+04] = np.nan
 
         # Create a trajectroy for each point    
-        for j,name in enumerate(feature_names[0:4]):
+        for j,name in enumerate(feature_names[0:1]):
             fig=plt.figure()
             ax=fig.add_subplot(111)
             ax.plot(x_forward,yhat_forward[:,j], linewidth=4, label='Normative trejactory')
@@ -287,3 +301,80 @@ def trajectory_plotting(cov_forw, nm_dir):
             plt.title('Normative trejectory of' +name+' in '+ sex +' cohort')
             plt.show()
             plt.close()
+
+
+
+def dk_roi_viz(nm_dir, z_test, thresh, vis, **kwargs):
+    # 3d visualization of df atlas (grey and wm)
+    # dk_roi_viz(nm_dir, z_test, thresh, vis, **kwargs):
+
+    IC = kwargs.get('IC', False)
+
+    # for WM
+    if IC:
+        cnames = pd.read_csv(os.path.join(nm_dir,'colnames.txt'), sep = ' ',header=None).to_numpy()
+        cnames = [i[0] for i in cnames]
+        cnames = [i.split('_')[1] for i in cnames]
+        z_test.columns = cnames
+
+        # This is for vizualization of Desikan Killiany intracranial volumes
+        int_dict = {'Left-Lateral-Ventricle': 'LLateVent',
+                'Left-Thalamus': 'Lthal',
+                'Left-Caudate': 'Lcaud',
+                'Left-Putamen': 'Lput',
+                'Left-Pallidum': 'Lpal',
+                'Left-Hippocampus': 'Lhippo',
+                'Left-Amygdala': 'Lamyg',
+                'Left-Accumbens-area': 'Laccumb',
+                'Right-Lateral-Ventricle': 'RLatVent',
+                'Right-Thalamus': 'Rthal',
+                'Right-Caudate': 'Rcaud',
+                'Right-Putamen': 'Rput',
+                'Right-Pallidum': 'Rpal',
+                'Right-Hippocampus': 'Rhippo',
+                'Right-Amygdala': 'Ramyg',
+                'Right-Accumbens-area': 'Raccumb'
+        }
+
+        z_test.rename(columns=int_dict, inplace=True)
+        z_pk = z_test.iloc[:,[0,4,5,6,7,11,12,14,18,22,23,24,25,26,27,28]]
+        z_reorder = reorder_sctx(z_pk)
+
+        if vis == 'pos':
+            z_epoz = (z_reorder>thresh).sum()/z_test.shape[0]
+            return(z_epoz)
+        elif vis == 'neg':
+            z_eneg = (z_reorder<-thresh).sum()/z_test.shape[0]
+            return(z_eneg)
+        else:
+            print('You can only pick poz or neg type of visualization')
+    
+    # for GM
+    else:
+        # prepare data for visualization
+        cnames = pd.read_csv(os.path.join(nm_dir,'colnames.txt'), sep = ' ',header=None).to_numpy()
+        cnames = [i[0] for i in cnames]
+        cnames = [i.replace('rh_','R_') for i in cnames]
+        cnames = [i.replace('lh_','L_') for i in cnames]
+        z_test.columns = cnames
+
+        R_hemi = [col for col in z_test.columns if 'R_' in col]
+        L_hemi = [col for col in z_test.columns if 'L_' in col]
+        z_test = pd.concat([z_test[L_hemi], z_test[R_hemi]], axis=1)
+
+
+        if vis == 'pos':
+            # plot the ratio of extreme positive deviations
+            z_epoz = (z_test>thresh).sum()/z_test.shape[0]
+            z_epoz_parc = parcel_to_surface(z_epoz, 'aparc_fsa5')
+            return(z_epoz_parc)
+
+            
+        elif vis == 'neg':
+            # plot the ratio of extreme negative deviations
+            z_eneg = (z_test<-thresh).sum()/z_test.shape[0]
+            z_epoz_neg = parcel_to_surface(z_eneg, 'aparc_fsa5')
+            return(z_epoz_neg)
+            
+        else:
+            print('You can only pick poz or neg type of visualization')
