@@ -304,14 +304,12 @@ def trajectory_plotting(cov_forw, nm_dir):
 
 
 
-def dk_roi_viz(nm_dir, z_test, thresh, vis, **kwargs):
+def dk_roi_viz(nm_dir, z_test, thresh, vis, fs_var):
     # 3d visualization of df atlas (grey and wm)
     # dk_roi_viz(nm_dir, z_test, thresh, vis, **kwargs):
 
-    IC = kwargs.get('IC', False)
-
     # for WM
-    if IC:
+    if 'IC' in fs_var:
         cnames = pd.read_csv(os.path.join(nm_dir,'colnames.txt'), sep = ' ',header=None).to_numpy()
         cnames = [i[0] for i in cnames]
         cnames = [i.split('_')[1] for i in cnames]
