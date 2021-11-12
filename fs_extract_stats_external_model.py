@@ -116,5 +116,5 @@ for which_var in range(5):
 ###
 merged = data_aseg.merge(data_aparc, how="inner", on="id")
 save_file = os.path.join(save_res,'fit_external_' + suffix[which_var] + '.txt')
-merged.to_csv(save_file, sep=';', index = False)
+merged.to_csv(save_file, sep=';', index = True)
     
