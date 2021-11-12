@@ -60,7 +60,7 @@ data_aseg.index=data_aseg['id']
 
 # renaming and deleting columns to fit the datatable here:
 # https://colab.research.google.com/github/saigerutherford/CPC_ML_tutorial/blob/master/tasks/1_fit_normative_models.ipynb#scrollTo=4b64f505-ad16-437a-94de-2646f35ae55f
-data_aseg = data_aseg.rename(columns={"BrainSegVolNotVent":"BrainSegVolNotVentSurf", "eTIV":"EstimatedTotalIntraCranialVol"})
+data_aseg = data_aseg.rename(columns={"BrainSegVolNotVent":"BrainSegVolNotVentSurf", "eTIV":"EstimatedTotalIntraCranialVol", "Left-Thalamus":"Left-Thalamus-Proper","Right-Thalamus":"Right-Thalamus-Proper"})
 data_aseg = data_aseg.drop(columns=["VentricleChoroidVol", "id"])
 
 
