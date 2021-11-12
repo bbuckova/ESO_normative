@@ -10,6 +10,49 @@ from enigmatoolbox.utils.parcellation import parcel_to_surface
 from enigmatoolbox.plotting import plot_cortical, plot_subcortical
 from enigmatoolbox.utils.useful import reorder_sctx
 
+def load_clinics(clinics):
+    # rename the czech columns
+    clinics.columns = ["Visit_ID", "HYDRA_ID", "Full_HYDRA_ID", "Special_ID", "Inclusion", 
+                        "Inclusion_Comment", "Category", "Birth", "sex", "Comment",
+                        'age', 'Date_of_Visit', 'No_Visit', "Dir_Name", 'Visit_Comment','Project',
+                        'Completion_Comment', 'List_of_Series','site', 'Siblings_Patients',
+                        'Siblings_Healthy', 'Laterality_EHI', 'Right_Handed']
+
+    # Change the values of categorical variables from czech to english
+    clinics['Category'] = clinics['Category'].str[:].str.upper().map({'PACIENT':'Patient', 'KONTROLA':'Control', 'SOUROZENEC':'Sibling', 'HIGH RISK':'High_risk'})
+    clinics['Inclusion'] = clinics['Inclusion'].str[:].str.upper().map({'ZAŘAZENA':'Included', 'ZAŘAZENA S VÝHRADAMI':'Included with Reservations'})
+
+    # we need to create a correct index for merging dataframes
+    idx = clinics["Dir_Name"]
+
+    for iid in range(0, clinics.shape[0]):
+        iname = idx[iid]
+        if isinstance(iname, str):
+            name = iname.split("_")[1]+ '_' + iname.split("_")[-1]
+        else:
+            name = 'no'
+        
+        if iid == 0:
+            names = name
+        else:
+            names = np.append(names,name)
+
+
+    clinics.index = names
+
+    # drop unnecessary variables
+    clinics = clinics[["Category","Sex", "Birth", 'Age_at_Visit', "Inclusion", "No_Visit", "Right_Handed"]]
+
+    # drop Siblings and High Risk
+    clinics = clinics[(clinics["Category"] == "Patient") |(clinics["Category"] == "Control")]
+
+    if 'no' in clinics.index:
+        clinics = clinics.drop(index=['no'])
+    
+    # wrap up
+    return(clinics)
+    
+
 
 def merge_and_reorder(clinics, neuro):
     """
