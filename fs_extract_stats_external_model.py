@@ -60,7 +60,7 @@ data_aseg.index=data_aseg['id']
 
 # renaming and deleting columns to fit the datatable here:
 # https://colab.research.google.com/github/saigerutherford/CPC_ML_tutorial/blob/master/tasks/1_fit_normative_models.ipynb#scrollTo=4b64f505-ad16-437a-94de-2646f35ae55f
-data_asegdata_aseg.rename(columns={"BrainSegVolNotVent":"BrainSegVolNotVentSurf", "eTIV":"EstimatedTotalIntraCranialVol"})
+data_aseg = data_aseg.rename(columns={"BrainSegVolNotVent":"BrainSegVolNotVentSurf", "eTIV":"EstimatedTotalIntraCranialVol"})
 data_aseg = data_aseg.drop(columns=["VentricleChoroidVol", "id"])
 
 
@@ -114,7 +114,7 @@ for which_var in range(5):
 ###
 # Merge the two datatables and save
 ###
-merged = data_aseg.merge(data_aparc, how="inner")
+merged = data_aseg.merge(data_aparc, how="inner", on="id")
 save_file = os.path.join(save_res,'fit_external_' + suffix[which_var] + '.txt')
 merged.to_csv(save_file, sep=';', index = False)
     
