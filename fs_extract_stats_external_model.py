@@ -101,7 +101,7 @@ for which_var in range(5):
     hdr_lh = ('lh_' + rh[0] + '_' + suffix[which_var]).to_numpy()
     hdr = np.append(hdr_lh,hdr_rh)
     hdr = np.append(['id'], hdr)
-    hdr = np.array([i.replace('and','&') for i in hdr])
+    hdr = np.array([i.replace('_and_','&') for i in hdr])
     hdr = hdr[np.newaxis,:]
 
     data = np.append(hdr, data, axis = 0)
