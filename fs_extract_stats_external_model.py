@@ -4,10 +4,10 @@ import pandas as pd
 import numpy as np
 
 # go through dirs in thos directory
-rootdir = '/home/barbora/Documents/Projects/Normative_Models/ESO/temp'
-save_res = '/home/barbora/Documents/Projects/Normative_Models/ESO/temp'
-#rootdir = '/hydradb/hydra_io/vypocty/skoch/freefs/freeSurfer/HCP_NUDZ_v7_ESO/A_FS_wo_preFS_all_links_20210907'
-#save_res = '/hydra-db/hydra_io/vypocty/buckova/PCN/tonda_fs_stats'
+#rootdir = '/home/barbora/Documents/Projects/Normative_Models/ESO/temp'
+#save_res = '/home/barbora/Documents/Projects/Normative_Models/ESO/temp'
+rootdir = '/hydradb/hydra_io/vypocty/skoch/freefs/freeSurfer/HCP_NUDZ_v7_ESO/A_FS_wo_preFS_all_links_20210907'
+save_res = '/hydra-db/hydra_io/vypocty/buckova/PCN/tonda_fs_stats'
 os.chdir(rootdir)
 
 # everythiink relevant is called ESO*
@@ -56,11 +56,13 @@ head = head[np.newaxis,:]
 
 data_aseg = np.append(head, data, axis = 0)  
 data_aseg = pd.DataFrame(data_aseg[1:], columns=data_aseg[0])
+data_aseg.index=data_aseg['id']
 
 # renaming and deleting columns to fit the datatable here:
 # https://colab.research.google.com/github/saigerutherford/CPC_ML_tutorial/blob/master/tasks/1_fit_normative_models.ipynb#scrollTo=4b64f505-ad16-437a-94de-2646f35ae55f
-data_aseg.rename(columns={"BrainSegVolNotVent":"BrainSegVolNotVentSurf", "eTIV":"EstimatedTotalIntraCranialVol"})
-data_aseg.drop(columns=["VentricleChoroidVol"])
+data_asegdata_aseg.rename(columns={"BrainSegVolNotVent":"BrainSegVolNotVentSurf", "eTIV":"EstimatedTotalIntraCranialVol"})
+data_aseg = data_aseg.drop(columns=["VentricleChoroidVol", "id"])
+
 
 #save_file = os.path.join(save_res,'fit_external_model_aseg_data.txt')
 #data_aseg.to_csv(save_file, sep=';', index = False)
@@ -99,19 +101,20 @@ for which_var in range(5):
     hdr_lh = ('lh_' + rh[0] + '_' + suffix[which_var]).to_numpy()
     hdr = np.append(hdr_lh,hdr_rh)
     hdr = np.append(['id'], hdr)
+    hdr = np.array([i.replace('and','&') for i in hdr])
     hdr = hdr[np.newaxis,:]
 
     data = np.append(hdr, data, axis = 0)
     data = pd.DataFrame(data[1:], columns=data[0])
     data_aparc = data
-    #save_file = os.path.join(save_res,'fit_external_model_aparc_a2009s_' + suffix[which_var] + '.txt')
-    #data_aparc.to_csv(save_file, sep=';', index = False)
+    data_aparc.index=data_aparc['id']
+    data_aparc = data_aparc.drop(columns=['id'])
 
 
 ###
 # Merge the two datatables and save
 ###
-merged = pd.concat([data_aseg, data_aparc], axis=1, join="inner")
+merged = data_aseg.merge(data_aparc, how="inner")
 save_file = os.path.join(save_res,'fit_external_' + suffix[which_var] + '.txt')
 merged.to_csv(save_file, sep=';', index = False)
     
