@@ -5,7 +5,10 @@ import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib
+import random
 
+from pcntoolkit.normative import estimate, predict, evaluate
+from pcntoolkit.util.utils import compute_MSLL, create_design_matrix
 from enigmatoolbox.utils.parcellation import parcel_to_surface
 from enigmatoolbox.plotting import plot_cortical, plot_subcortical
 from enigmatoolbox.utils.useful import reorder_sctx
@@ -39,9 +42,9 @@ def load_clinics(clinics):
 
 
     clinics.index = names
-
+    
     # drop unnecessary variables
-    clinics = clinics[["Category","Sex", "Birth", 'Age_at_Visit', "Inclusion", "No_Visit", "Right_Handed"]]
+    clinics = clinics[["Category","sex", "Birth", 'age', "Inclusion", "site","No_Visit", "Right_Handed"]]
 
     # drop Siblings and High Risk
     clinics = clinics[(clinics["Category"] == "Patient") |(clinics["Category"] == "Control")]
@@ -49,6 +52,10 @@ def load_clinics(clinics):
     if 'no' in clinics.index:
         clinics = clinics.drop(index=['no'])
     
+    sex_nums = {"sex": {"F":0, "M":1}}
+    clinics = clinics.replace(sex_nums)
+
+
     # wrap up
     return(clinics)
     
@@ -419,3 +426,251 @@ def dk_roi_viz(nm_dir, z_test, thresh, vis, fs_var):
             
         else:
             print('You can only pick poz or neg type of visualization')
+
+
+###
+# Making predictions
+### 
+def pretrained_adapt(idp_ids, site_ids_tr, site_ids_te, pretrained_dir, visit_dir, df_ad, df_te):
+    """
+    pretrained_adapt(idp_ids, site_ids_tr, site_ids_te, pretrained_dir, visit_dir, df_ad, df_te)
+    """
+    # which data columns do we wish to use as covariates? 
+    cols_cov = ['age','sex']
+
+    # limits for cubic B-spline basis 
+    xmin = -5 
+    xmax = 110
+
+    # Absolute Z treshold above which a sample is considered to be an outlier (without fitting any model)
+    outlier_thresh = 7
+
+    for idp_num, idp in enumerate(idp_ids): 
+        print('Running IDP', idp_num, idp, ':')
+        idp_dir = os.path.join(pretrained_dir,'models','lifespan_57K_82sites', idp)
+        idp_visit_dir = os.path.join(visit_dir,idp)
+        os.makedirs(idp_visit_dir, exist_ok=True)
+        os.chdir(idp_visit_dir)
+        
+        # extract and save the response variables for the test set
+        y_te = df_te[idp].to_numpy()
+        
+        # save the variables
+        resp_file_te = os.path.join(idp_visit_dir, 'resp_te.txt') 
+        np.savetxt(resp_file_te, y_te)
+            
+        # configure and save the design matrix
+        cov_file_te = os.path.join(idp_visit_dir, 'cov_bspline_te.txt')
+        X_te = create_design_matrix(df_te[cols_cov], 
+                                    site_ids = df_te['site'],
+                                    all_sites = site_ids_tr,
+                                    basis = 'bspline', 
+                                    xmin = xmin, 
+                                    xmax = xmax)
+        np.savetxt(cov_file_te, X_te)
+        
+        # check whether all sites in the test set are represented in the training set
+        if all(elem in site_ids_tr for elem in site_ids_te):
+            print('All sites are present in the training data')
+            
+            # just make predictions
+            yhat_te, s2_te, Z = predict(cov_file_te, 
+                                        alg='blr', 
+                                        respfile=resp_file_te, 
+                                        model_path=os.path.join(idp_dir,'Models'))
+        else:
+            print('Some sites missing from the training data. Adapting model')
+            
+            # save the covariates for the adaptation data
+            X_ad = create_design_matrix(df_ad[cols_cov], 
+                                        site_ids = df_ad['site'],
+                                        all_sites = site_ids_tr,
+                                        basis = 'bspline', 
+                                        xmin = xmin, 
+                                        xmax = xmax)
+            cov_file_ad = os.path.join(idp_visit_dir, 'cov_bspline_ad.txt')          
+            np.savetxt(cov_file_ad, X_ad)
+            
+            # save the responses for the adaptation data
+            resp_file_ad = os.path.join(idp_visit_dir, 'resp_ad.txt') 
+            y_ad = df_ad[idp].to_numpy()
+            np.savetxt(resp_file_ad, y_ad)
+        
+            # save the site ids for the adaptation data
+            sitenum_file_ad = os.path.join(idp_visit_dir, 'sitenum_ad.txt') 
+            site_num_ad = df_ad['sitenum'].to_numpy(dtype=int)
+            np.savetxt(sitenum_file_ad, site_num_ad)
+            
+            # save the site ids for the test data 
+            sitenum_file_te = os.path.join(idp_visit_dir, 'sitenum_te.txt')
+            site_num_te = df_te['sitenum'].to_numpy(dtype=int)
+            np.savetxt(sitenum_file_te, site_num_te)
+
+            # adaptation files are among inputs to adjust the offset 
+            yhat_te, s2_te, Z = predict(cov_file_te, 
+                                        alg = 'blr', 
+                                        respfile = resp_file_te, 
+                                        model_path = os.path.join(idp_dir,'Models'),
+                                        adaptrespfile = resp_file_ad,
+                                        adaptcovfile = cov_file_ad,
+                                        adaptvargroupfile = sitenum_file_ad,
+                                        testvargroupfile = sitenum_file_te)
+
+def pretrained_adapt_small(idp, site_ids_tr, site_ids_te, pretrained_dir, idp_visit_dir, idp_dir, df_ad, df_te):
+    """
+    This function is specifically used in the examination of the adaptation data effect
+    The cycle over idps is taken out in to acoomodate for an additional layer of directories
+
+    pretrained_adapt_small(idp, site_ids_tr, site_ids_te, pretrained_dir, idp_visit_dir, df_ad, df_te)
+    """
+    # which data columns do we wish to use as covariates? 
+    cols_cov = ['age','sex']
+
+    # limits for cubic B-spline basis 
+    xmin = -5 
+    xmax = 110
+
+    # Absolute Z treshold above which a sample is considered to be an outlier (without fitting any model)
+    outlier_thresh = 7
+
+    # extract and save the response variables for the test set
+    y_te = df_te[idp].to_numpy()
+    
+    # save the variables
+    resp_file_te = os.path.join(idp_visit_dir, 'resp_te.txt') 
+    np.savetxt(resp_file_te, y_te)
+        
+    # configure and save the design matrix
+    cov_file_te = os.path.join(idp_visit_dir, 'cov_bspline_te.txt')
+    X_te = create_design_matrix(df_te[cols_cov], 
+                                site_ids = df_te['site'],
+                                all_sites = site_ids_tr,
+                                basis = 'bspline', 
+                                xmin = xmin, 
+                                xmax = xmax)
+    np.savetxt(cov_file_te, X_te)
+    
+    # check whether all sites in the test set are represented in the training set
+    if all(elem in site_ids_tr for elem in site_ids_te):
+        print('All sites are present in the training data')
+        
+        # just make predictions
+        yhat_te, s2_te, Z = predict(cov_file_te, 
+                                    alg='blr', 
+                                    respfile=resp_file_te, 
+                                    model_path=os.path.join(idp_dir,'Models'))
+    else:
+        print('Some sites missing from the training data. Adapting model')
+        
+        # save the covariates for the adaptation data
+        X_ad = create_design_matrix(df_ad[cols_cov], 
+                                    site_ids = df_ad['site'],
+                                    all_sites = site_ids_tr,
+                                    basis = 'bspline', 
+                                    xmin = xmin, 
+                                    xmax = xmax)
+        cov_file_ad = os.path.join(idp_visit_dir, 'cov_bspline_ad.txt')          
+        np.savetxt(cov_file_ad, X_ad)
+        
+        # save the responses for the adaptation data
+        resp_file_ad = os.path.join(idp_visit_dir, 'resp_ad.txt') 
+        y_ad = df_ad[idp].to_numpy()
+        np.savetxt(resp_file_ad, y_ad)
+    
+        # save the site ids for the adaptation data
+        sitenum_file_ad = os.path.join(idp_visit_dir, 'sitenum_ad.txt') 
+        site_num_ad = df_ad['sitenum'].to_numpy(dtype=int)
+        np.savetxt(sitenum_file_ad, site_num_ad)
+        
+        # save the site ids for the test data 
+        sitenum_file_te = os.path.join(idp_visit_dir, 'sitenum_te.txt')
+        site_num_te = df_te['sitenum'].to_numpy(dtype=int)
+        np.savetxt(sitenum_file_te, site_num_te)
+
+        # adaptation files are among inputs to adjust the offset 
+        yhat_te, s2_te, Z = predict(cov_file_te, 
+                                    alg = 'blr', 
+                                    respfile = resp_file_te, 
+                                    model_path = os.path.join(idp_dir,'Models'),
+                                    adaptrespfile = resp_file_ad,
+                                    adaptcovfile = cov_file_ad,
+                                    adaptvargroupfile = sitenum_file_ad,
+                                    testvargroupfile = sitenum_file_te)
+
+
+
+def set_seed(seed=None, seed_torch=False):
+    """
+    set_seed(seed=None, seed_torch=False)
+
+    automatically sets seed for reproducible analysis
+    """
+    if seed is None:
+        seed = 42
+    random.seed(seed)
+    np.random.seed(seed)
+    if seed_torch:
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.cuda.manual_seed(seed)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+
+    print(f'Random seed {seed} has been set.')
+
+
+def pretrained_ini():
+    """
+    Get the basic parameters of pretrained models
+    model_name, site_names, site_ids_tr, idp_ids = pretrained_ini()
+    """
+    pretrained_dir = ('/home/barbora/Documents/Projects/Normative_Models/ESO/braincharts')
+    model_name = 'lifespan_57K_82sites'
+    site_names = 'site_ids_82sites.txt'
+
+    # load a set of site ids from this model. This must match the training data
+    with open(os.path.join(pretrained_dir,'docs', site_names)) as f:
+        site_ids_tr = f.read().splitlines()
+
+    ## Our dataset currently misses 2 variables: 'lh_MeanThickness_thickness', 'rh_MeanThickness_thickness'; to be extracted from a2009s
+    # load the list of idps for left and right hemispheres, plus subcortical regions
+    with open(os.path.join(pretrained_dir,'docs','phenotypes_lh.txt')) as f:
+        idp_ids_lh = f.read().splitlines()
+    with open(os.path.join(pretrained_dir,'docs','phenotypes_rh.txt')) as f:
+        idp_ids_rh = f.read().splitlines()
+    with open(os.path.join(pretrained_dir,'docs','phenotypes_sc.txt')) as f:
+        idp_ids_sc = f.read().splitlines()
+
+    # we choose here to process all idps
+    idp_ids = idp_ids_lh + idp_ids_rh + idp_ids_sc
+
+    # delete features that are not present in our data
+    idp_ids.remove('lh_MeanThickness_thickness')
+    idp_ids.remove('rh_MeanThickness_thickness')
+
+    return(model_name, site_names, site_ids_tr, idp_ids)
+
+
+    # put together same textfile across idps
+def idp_concat(m_dir, f_name, idp_ids, t_name, **kwargs):
+    """
+    Concatenates a vector file across all IDP's and writes
+    returns the path to the file
+    
+    file_path = idp_concat(m_dir, f_name, idp_ids, t_name, **kwargs)
+        - t_dir = target directory if different than the main directory (where all the dirs for idps are)
+
+    """
+    t_dir = kwargs.get('t_dir', m_dir)
+
+    # get dimensions of an empty array
+    l = np.genfromtxt(os.path.join(m_dir,idp_ids[0],f_name),delimiter=' ').shape[0]
+    na = np.empty([l,len(idp_ids)])
+
+    for n_idp, idp in enumerate(idp_ids):
+        na[:,n_idp] = np.genfromtxt(os.path.join(m_dir,idp,f_name),delimiter=' ')
+    
+    df_na = pd.DataFrame(na, columns = idp_ids)
+    df_na.to_csv(os.path.join(t_dir, t_name), sep = ' ', header=True, index = True)
+    
+    return(os.path.join(t_dir, t_name))
