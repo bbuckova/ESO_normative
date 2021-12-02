@@ -18,7 +18,7 @@ os.chdir(rootdir)
 
 # everythiink relevant is called ESO*
 # work on all visits
-dirs = (glob.glob('ESO*long*_'+str(visit)+'_base'))
+dirs = (glob.glob('ESO*_'+str(visit)+'.long.*_base'))
 
 ###
 # Extract information from aseg
