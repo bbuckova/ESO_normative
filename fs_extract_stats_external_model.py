@@ -83,7 +83,7 @@ for which_var in range(5):
         # extract data
         lh = pd.read_csv(os.path.join(rootdir,idir,'stats/lh.aparc.a2009s.stats'), skiprows=61, header=None, delim_whitespace=True)
         rh = pd.read_csv(os.path.join(rootdir,idir,'stats/rh.aparc.a2009s.stats'), skiprows=61, header=None, delim_whitespace=True)
-        var = np.append(rh[which_var].to_numpy(), lh[which_var].to_numpy())
+        var = np.append(lh[which_var].to_numpy(), rh[which_var].to_numpy())
 
         # extract subject id and visit
         name = idir.split('_')
