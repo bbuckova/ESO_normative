@@ -30,7 +30,7 @@ for idx, idir in enumerate(dirs):
     inf = gen_inf[3].to_numpy()
 
     # reading the white matter information
-    gen_sub = pd.read_csv(os.path.join(rootdir,idir,'stats/aseg.stats'), skiprows=79, header=None, delim_whitespace=True)
+    gen_sub = pd.read_csv(os.path.join(rootdir,idir,'stats/aseg.stats'), skiprows=76, header=None, delim_whitespace=True)
     # preparing wm data
     wm = np.concatenate(gen_sub.iloc[:,[3]].to_numpy())# 3 means only volumes are read
     
