@@ -691,6 +691,7 @@ def prepare_destrieux_plotting(data, hemi, method='counts'):
     
     # load destrieux atlas
     destrieux_atlas = datasets.fetch_atlas_surf_destrieux()
+    fsaverage = datasets.fetch_surf_fsaverage()
 
     # pick hemi
     if hemi == 'r':
@@ -758,52 +759,88 @@ def prepare_destrieux_plotting(data, hemi, method='counts'):
     return(data_mapping,view)
     
 
-    def reordered_heatmap(empir_pvals, **kwargs):
-        """Function takes pandas dataframe and returns back the same one, just reordered
-        () = reordered heatmap(emmpir_pvals, **kwargs)
-            title... figure title
-            savename... save name - has to be the entire path!
-            range... use, if you want to keep the polarity of correlation (pd dataframe of the same size as empr_pvals)
+def reordered_heatmap(empir_pvals, **kwargs):
+    """Function takes pandas dataframe and returns back the same one, just reordered
+    () = reordered heatmap(emmpir_pvals, **kwargs)
+        title... figure title
+        savename... save name - has to be the entire path!
+        range... use, if you want to keep the polarity of correlation (pd dataframe of the same size as empr_pvals)
+    """
+
+    # Playing around with row and columns reodering for plotting
+    title = kwargs.get('title','Pvalues thresholded on 0.05')
+    savename = kwargs.get('savefig', False)
+    range = kwargs.get('range', None)
+
+    # colorscale
+    pk = sns.color_palette("RdBu_r", 8)
+    pk2 = sns.color_palette("RdBu_r", 8)
+    pk2[0] = pk[3]
+    pk2[1] = pk[2]
+    pk2[2] = pk[1]
+    pk2[3] = pk[0]
+    pk2[4] = pk[7]
+    pk2[5] = pk[6]
+    pk2[6] = pk[5]
+    pk2[7] = pk[4]
+
+    if range is not None:
+        empir_pvals = pd.DataFrame((np.sign(range)).to_numpy()*empir_pvals.to_numpy(), columns=empir_pvals.columns, index=empir_pvals.index)
+        ylim = -0.075        
+    else:
+        ylim = 0
+
+    ctemp = (abs(empir_pvals)<0.05).sum()
+    rtemp = (abs(empir_pvals)<0.05).T.sum()
+    empir_pvals_csorted = empir_pvals[ctemp.sort_values(ascending=False).index[:len(ctemp)]]
+    empir_pvals_rsorted = empir_pvals_csorted.reindex(empir_pvals_csorted.apply(lambda x: (abs(x)<0.05).sum(), axis =1).sort_values(ascending=False).index.to_list())
+
+    
+
+    # pot heatmap of pvals
+    fig,ax  = plt.subplots(1,1, figsize=(15,10))
+    sns.heatmap(empir_pvals_rsorted, vmin=ylim, vmax=0.075, cmap=pk2)
+    fig.suptitle(title)
+    sns.despine()
+    plt.tight_layout()
+    plt.show
+    if savename:
+        plt.savefig(savename)
+    
+    return(empir_pvals_rsorted)
+
+def fs_map_subcortical(data):
+        """
+        The function extract subcorticle ROIs from the pandas data frame and maps them onto the surface ready for plotting
+        fs_map_subcortical(data)
+        data = Pandas Data Frame with either cols or indicies as ROI names
+                - one column/row only
         """
 
-        # Playing around with row and columns reodering for plotting
-        title = kwargs.get('title','Pvalues thresholded on 0.05')
-        savename = kwargs.get('savefig', False)
-        range = kwargs.get('range', None)
+        if [True for i in data.index if 'Thalamus' in i]:
+                data = data.transpose()
 
-        # colorscale
-        pk = sns.color_palette("RdBu_r", 8)
-        pk2 = sns.color_palette("RdBu_r", 8)
-        pk2[0] = pk[3]
-        pk2[1] = pk[2]
-        pk2[2] = pk[1]
-        pk2[3] = pk[0]
-        pk2[4] = pk[7]
-        pk2[5] = pk[6]
-        pk2[6] = pk[5]
-        pk2[7] = pk[4]
 
-        if range is not None:
-            empir_pvals = pd.DataFrame((np.sign(range)).to_numpy()*empir_pvals.to_numpy(), columns=empir_pvals.columns, index=empir_pvals.index)
-            ylim = -0.075        
-        else:
-            ylim = 0
+        int__dict = {'Left-Lateral-Ventricle': 'L_ventricles',
+                'Left-Thalamus-Proper': 'L_thalamus',
+                'Left-Caudate': 'L_caudate',
+                'Left-Putamen': 'L_putamen',
+                'Left-Pallidum': 'L_pallidun',
+                'Left-Hippocampus': 'L_hippocampus',
+                'Left-Amygdala': 'L_amygdala',
+                'Left-Accumbens-area': 'L_accumbens',
+                'Right-Lateral-Ventricle': 'R_ventricles',
+                'Right-Thalamus-Proper': 'R_thalamus',
+                'Right-Caudate': 'R_caudate',
+                'Right-Putamen': 'R_putamen',
+                'Right-Pallidum': 'R_pallidun',
+                'Right-Hippocampus': 'R_hippocampus',
+                'Right-Amygdala': 'R_amygdala',
+                'Right-Accumbens-area': 'R_accumbens'
+        }
 
-        ctemp = (abs(empir_pvals)<0.05).sum()
-        rtemp = (abs(empir_pvals)<0.05).T.sum()
-        empir_pvals_csorted = empir_pvals[ctemp.sort_values(ascending=False).index[:len(ctemp)]]
-        empir_pvals_rsorted = empir_pvals_csorted.reindex(empir_pvals_csorted.apply(lambda x: (abs(x)<0.05).sum(), axis =1).sort_values(ascending=False).index.to_list())
-
-        
-
-        # pot heatmap of pvals
-        fig,ax  = plt.subplots(1,1, figsize=(15,10))
-        sns.heatmap(empir_pvals_rsorted, vmin=ylim, vmax=0.075, cmap=pk2)
-        fig.suptitle(title)
-        sns.despine()
-        plt.tight_layout()
-        plt.show
-        if savename:
-            plt.savefig(savename)
-        
-        return(empir_pvals_rsorted)
+        data = data[list(int__dict)]
+        data.rename(columns=int__dict, inplace=True)
+        data = data.reindex(sorted(data.columns), axis=1)
+        data_mapped = enigmatoolbox.utils.parcellation.subcorticalvertices(data.iloc[0,:].to_numpy())
+        return(data, data_mapped)
