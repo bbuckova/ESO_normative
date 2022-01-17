@@ -679,7 +679,12 @@ def idp_concat(m_dir, f_name, idp_ids, t_name, **kwargs):
 def prepare_destrieux_plotting(data, hemi, method='counts'):
     """
     Prepare data for ROI plotting using destrieux atlas
-    method = counts/correlations/pvals
+    data = has to be pd.DataFrame with exactly one column
+    hemi = hemisphere 'r' or 'l'
+    method = counts/correlations/pvals 
+            - this is only relevant if there is an ROI missing
+            - counts/correlations = 0
+            - pvals = 1
     """
     # packages
     from nilearn import datasets
@@ -752,3 +757,53 @@ def prepare_destrieux_plotting(data, hemi, method='counts'):
     view
     return(data_mapping,view)
     
+
+    def reordered_heatmap(empir_pvals, **kwargs):
+        """Function takes pandas dataframe and returns back the same one, just reordered
+        () = reordered heatmap(emmpir_pvals, **kwargs)
+            title... figure title
+            savename... save name - has to be the entire path!
+            range... use, if you want to keep the polarity of correlation (pd dataframe of the same size as empr_pvals)
+        """
+
+        # Playing around with row and columns reodering for plotting
+        title = kwargs.get('title','Pvalues thresholded on 0.05')
+        savename = kwargs.get('savefig', False)
+        range = kwargs.get('range', None)
+
+        # colorscale
+        pk = sns.color_palette("RdBu_r", 8)
+        pk2 = sns.color_palette("RdBu_r", 8)
+        pk2[0] = pk[3]
+        pk2[1] = pk[2]
+        pk2[2] = pk[1]
+        pk2[3] = pk[0]
+        pk2[4] = pk[7]
+        pk2[5] = pk[6]
+        pk2[6] = pk[5]
+        pk2[7] = pk[4]
+
+        if range is not None:
+            empir_pvals = pd.DataFrame((np.sign(range)).to_numpy()*empir_pvals.to_numpy(), columns=empir_pvals.columns, index=empir_pvals.index)
+            ylim = -0.075        
+        else:
+            ylim = 0
+
+        ctemp = (abs(empir_pvals)<0.05).sum()
+        rtemp = (abs(empir_pvals)<0.05).T.sum()
+        empir_pvals_csorted = empir_pvals[ctemp.sort_values(ascending=False).index[:len(ctemp)]]
+        empir_pvals_rsorted = empir_pvals_csorted.reindex(empir_pvals_csorted.apply(lambda x: (abs(x)<0.05).sum(), axis =1).sort_values(ascending=False).index.to_list())
+
+        
+
+        # pot heatmap of pvals
+        fig,ax  = plt.subplots(1,1, figsize=(15,10))
+        sns.heatmap(empir_pvals_rsorted, vmin=ylim, vmax=0.075, cmap=pk2)
+        fig.suptitle(title)
+        sns.despine()
+        plt.tight_layout()
+        plt.show
+        if savename:
+            plt.savefig(savename)
+        
+        return(empir_pvals_rsorted)
