@@ -674,3 +674,81 @@ def idp_concat(m_dir, f_name, idp_ids, t_name, **kwargs):
     df_na.to_csv(os.path.join(t_dir, t_name), sep = ' ', header=True, index = True)
     
     return(os.path.join(t_dir, t_name))
+
+
+def prepare_destrieux_plotting(data, hemi, method='counts'):
+    """
+    Prepare data for ROI plotting using destrieux atlas
+    method = counts/correlations/pvals
+    """
+    # packages
+    from nilearn import datasets
+    
+    # load destrieux atlas
+    destrieux_atlas = datasets.fetch_atlas_surf_destrieux()
+
+    # pick hemi
+    if hemi == 'r':
+        atlas = destrieux_atlas['map_right']
+        filter_hemi = 'rh'
+        fs_plot = fsaverage.infl_right
+        fs_sulc = fsaverage.sulc_right
+    elif hemi == 'l':
+        atlas = destrieux_atlas['map_left']
+        filter_hemi = 'lh'
+        fs_plot = fsaverage.infl_left
+        fs_sulc = fsaverage.sulc_left
+    
+    # check wthther the values are on rows or in columns
+    if [True for i in data.columns if 'occipital' in i]:
+        data = data.transpose()
+    
+    # filter the hemisphere we need (if this does not work we assume we are only given one hemisphere)
+    data_hemi = data.loc[[i for i in data.index if filter_hemi in i]]
+    if data_hemi.shape[0] == 0:
+        data_hemi = data
+    
+
+    # check whether we are missing some ROIs
+    if data_hemi.shape[0] == len(destrieux_atlas['labels']):
+        # do nothing, we have all the ROIs
+        print('all ROIs present')
+    else: 
+        # run over all all labels and see whether the name exists    
+        str(destrieux_atlas['labels'][0]).split('\'')[1]
+        missing=np.zeros(len(destrieux_atlas['labels']))
+        position=np.zeros(len(destrieux_atlas['labels']))
+        for i, imotif in enumerate(destrieux_atlas['labels']): 
+            jmotif = str(imotif).split('\'')[1]
+            
+            # change _and_ for &
+            if '_and_' in jmotif:
+                jmotif = jmotif.replace('_and_','&')
+            
+            index = []
+            index = [j for j,i in enumerate(data_hemi.index) if jmotif in i]
+            if len(index) == 0:
+                missing[i] = 1
+                position[i] = np.nan
+            else:
+                position[i] = index[0]
+
+    # finally, put together the transformed list
+    a_list = list(range(len(destrieux_atlas['labels'])))
+    data_mapping = atlas
+    for atlas_roi in a_list:
+        if np.isnan(position[atlas_roi]): # if we don't have this roi in atlas then fill with pre-defined value
+            if method == 'counts' or method == 'correlations':
+                data_mapping = np.where(data_mapping == atlas_roi, 0, data_mapping)
+            elif method == 'pvals':
+                data_mapping = np.where(data_mapping == atlas_roi, 1, data_mapping)
+
+        else:
+            data_mapping = np.where(data_mapping == atlas_roi, data_hemi.iloc[int(position[atlas_roi]),0], data_mapping)
+
+    
+
+    view = plotting.view_surf(fs_plot, data_mapping, threshold=None, symmetric_cmap=True, cmap='jet', bg_map=fs_sulc)
+    view
+    return(data_mapping,view)
+    
