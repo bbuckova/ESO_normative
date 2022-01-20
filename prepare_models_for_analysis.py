@@ -33,8 +33,7 @@ def prepare_models_for_analysis(patients_dir, controls_dir, analysis_dir):
     bdata_dir = ('/home/barbora/Documents/Projects/Normative_Models/ESO/backup/fit_external_long')
     pretrained_dir = ('/home/barbora/Documents/Projects/Normative_Models/ESO/braincharts')
     #analysis_dir = os.path.join(main_dir, 'analyses', '01_PANSS')
-    images_dir = os.path.join(analysis_dir,'img')
-    os.makedirs(images_dir, exist_ok=True)
+
 
     # Here we are going to load data that are already preprocessed, concatenated and so on
 
