@@ -771,6 +771,7 @@ def reordered_heatmap(empir_pvals, **kwargs):
     title = kwargs.get('title','Pvalues thresholded on 0.05')
     savename = kwargs.get('savefig', False)
     range = kwargs.get('range', None)
+    plot_unsorted = kwargs.get('plot_unsorted', False)
 
     # colorscale
     pk = sns.color_palette("RdBu_r", 8)
@@ -790,10 +791,13 @@ def reordered_heatmap(empir_pvals, **kwargs):
     else:
         ylim = 0
 
-    ctemp = (abs(empir_pvals)<0.05).sum()
-    rtemp = (abs(empir_pvals)<0.05).T.sum()
-    empir_pvals_csorted = empir_pvals[ctemp.sort_values(ascending=False).index[:len(ctemp)]]
-    empir_pvals_rsorted = empir_pvals_csorted.reindex(empir_pvals_csorted.apply(lambda x: (abs(x)<0.05).sum(), axis =1).sort_values(ascending=False).index.to_list())
+    if plot_unsorted:
+        empir_pvals_rsorted = empir_pvals
+    else:
+        ctemp = (abs(empir_pvals)<0.05).sum()
+        rtemp = (abs(empir_pvals)<0.05).T.sum()
+        empir_pvals_csorted = empir_pvals[ctemp.sort_values(ascending=False).index[:len(ctemp)]]
+        empir_pvals_rsorted = empir_pvals_csorted.reindex(empir_pvals_csorted.apply(lambda x: (abs(x)<0.05).sum(), axis =1).sort_values(ascending=False).index.to_list())
 
     
 
