@@ -848,3 +848,14 @@ def fs_map_subcortical(data):
         data = data.reindex(sorted(data.columns), axis=1)
         data_mapped = enigmatoolbox.utils.parcellation.subcorticalvertices(data.iloc[0,:].to_numpy())
         return(data, data_mapped)
+
+def spearman_matrices(mat1, mat2):
+    import scipy.stats as ss
+    cmat = ss.spearmanr(mat1, mat2)
+    mat1_cols = mat1.shape[1]
+    mat2_cols = mat2.shape[1]
+
+    cmat = np.array([cmat[0][0:mat1_cols,-mat2_cols:], 
+                    cmat[1][0:mat1_cols,-mat2_cols:], 
+                    (np.sign(cmat[0][0:mat1_cols,-mat2_cols:]))*cmat[1][0:mat1_cols,-mat2_cols:]])
+    return(cmat)
