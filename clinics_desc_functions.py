@@ -658,6 +658,10 @@ def idp_concat(m_dir, f_name, idp_ids, t_name, **kwargs):
     returns the path to the file
     
     file_path = idp_concat(m_dir, f_name, idp_ids, t_name, **kwargs)
+        - m_dir = main dir with all the models
+        - f_name = the textfile to load across all models
+        - idp_ids = list of idps
+        - t_name = target name of the file
         - t_dir = target directory if different than the main directory (where all the dirs for idps are)
 
     """
