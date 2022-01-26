@@ -863,3 +863,20 @@ def spearman_matrices(mat1, mat2):
                     cmat[1][0:mat1_cols,-mat2_cols:], 
                     (np.sign(cmat[0][0:mat1_cols,-mat2_cols:]))*cmat[1][0:mat1_cols,-mat2_cols:]])
     return(cmat)
+
+def control_for(data, control):
+    """
+    intercept = ones(size(control,1),1)*mean(control);
+    beta = (inv([intercept, control]' * [intercept, control]))*[intercept, control]'*data;
+    controlled = data - [intercept, control]*beta;
+
+    controlled = control_for(data, control)
+    """
+    if control.shape[0] < control.shape[1]:
+        control = control.reshape(-1,1)
+    
+    intercept = np.ones([control.shape[0],1])*np.mean(control)
+    X = np.column_stack((intercept, control))
+    beta = (np.linalg.inv(X.T @ X)) @ X.T @ data
+    controlled = data - X @ beta
+    return(controlled)
