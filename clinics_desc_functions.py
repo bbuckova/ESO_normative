@@ -880,3 +880,19 @@ def control_for(data, control):
     beta = (np.linalg.inv(X.T @ X)) @ X.T @ data
     controlled = data - X @ beta
     return(controlled)
+
+def idp_concat_quality(target_dir, idp_ids):
+    """
+    Concatenate the quality measures over all idps
+    """
+    quality_measures = ['EXPV', 'Rho', 'pRho', 'RMSE', 'SMSE', 'MSLL']
+
+    qm = np.empty([len(idp_ids), len(quality_measures)])
+    for i, idp in enumerate(idp_ids):
+        for j, iq in enumerate(quality_measures):
+            qm[i,j] = np.genfromtxt(os.path.join(target_dir, idp, iq+'_predict.txt' ), delimiter=' ')
+
+    qm = pd.DataFrame(qm, columns=quality_measures, index=idp_ids)
+
+    return(qm, quality_measures)
+
