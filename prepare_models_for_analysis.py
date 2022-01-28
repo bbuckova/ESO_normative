@@ -136,26 +136,30 @@ def prepare_models_for_analysis(patients_dir, controls_dir, analysis_dir):
     # Rename the PANSS variables
     PANSS = [col for col in v1_pat.columns if "PANSS_" in col]
 
+    # We need to replace empy values (originally described as 'x') with NaN
+    mapping = {'x': np.nan}
+    v1_pat = v1_pat.applymap(lambda s: mapping.get(s) if s in mapping else s)
+    v2_pat = v2_pat.applymap(lambda s: mapping.get(s) if s in mapping else s)
+
+
     # Create indicies of the three PANSS chapters
     PANSS_P = [col for col in v1_pat.columns if "PANSS_P" in col][0:-1]
     PANSS_N = [col for col in v1_pat.columns if "PANSS_N" in col][0:-1]
     PANSS_G = [col for col in v1_pat.columns if "PANSS_G" in col][0:-1]
 
-    # We need to replace empy values (originally described as 'x') with NaN
-    mapping = {'x': np.nan}
-    v1_pat_clin = v1_pat.applymap(lambda s: mapping.get(s) if s in mapping else s)
-    v2_pat_clin = v2_pat.applymap(lambda s: mapping.get(s) if s in mapping else s)
-
-    # Create new columns that are sums of the three PANSS chapters
     v1_pat["PANSS_sumP"] = v1_pat[[col for col in v1_pat.columns if "PANSS_P" in col][0:-1]].sum(axis=1)
-    v2_pat["PANSS_sumP"] = v2_pat[[col for col in v2_pat.columns if "PANSS_P" in col][0:-1]].sum(axis=1)
-
     v1_pat["PANSS_sumN"] = v1_pat[[col for col in v1_pat.columns if "PANSS_N" in col][0:-1]].sum(axis=1)
-    v2_pat["PANSS_sumN"] = v2_pat[[col for col in v2_pat.columns if "PANSS_N" in col][0:-1]].sum(axis=1)
-
     v1_pat["PANSS_sumG"] = v1_pat[[col for col in v1_pat.columns if "PANSS_G" in col][0:-1]].sum(axis=1)
+
+    PANSS_P = [col for col in v2_pat.columns if "PANSS_P" in col][0:-1]
+    PANSS_N = [col for col in v2_pat.columns if "PANSS_N" in col][0:-1]
+    PANSS_G = [col for col in v2_pat.columns if "PANSS_G" in col][0:-1]
+
+    v2_pat["PANSS_sumP"] = v2_pat[[col for col in v2_pat.columns if "PANSS_P" in col][0:-1]].sum(axis=1)
+    v2_pat["PANSS_sumN"] = v2_pat[[col for col in v2_pat.columns if "PANSS_N" in col][0:-1]].sum(axis=1)
     v2_pat["PANSS_sumG"] = v2_pat[[col for col in v2_pat.columns if "PANSS_G" in col][0:-1]].sum(axis=1)
 
+    
     ###
     # GAF
     ###
