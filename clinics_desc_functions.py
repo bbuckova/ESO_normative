@@ -896,3 +896,102 @@ def idp_concat_quality(target_dir, idp_ids):
 
     return(qm, quality_measures)
 
+def equalize2(data1, data2):
+    """
+    data1, data2 = equalize2(data1, data2)
+    put into two 2D numpy arrays (containing the variables you wan to "make equal")
+    the function will identify subjects that need to be removed and inserts NaN-s to their respective positions
+    - this function primarily removes subjects from the bigger dataset
+    """
+    from scipy.stats import ttest_ind
+    
+    alpha = 0.05
+    Nvars = data1.shape[1]
+    OK=0
+    N1 = data1.shape[0]
+    N2 = data2.shape[0]
+
+    # one sided test to check for differences
+    [h,p] = ttest_ind(data1, data2, alternative='greater')
+    p2 = np.min(np.concatenate([p, 1-p]))
+
+    if p2 > alpha:
+        OK = 1
+    
+    while OK == 0:
+        # pick the variable with the most significant effect
+        I = np.where(p2==np.min(p2))[0]
+        direction = p[I[0]]<0.05 # check the direction of the effect
+
+        N1 = sum(~np.isnan(data1[:,0]))
+        N2 = sum(~np.isnan(data2[:,0]))
+
+        largerN1 = N1>N2
+
+        if largerN1:
+            if direction:
+                IN = np.where(data1[:,I[0]]==np.nanmax(data1[:,I[0]]))[0] # index for removal
+            else:
+                IN = np.where(data1[:,I[0]]==np.nanmin(data1[:,I[0]]))[0] # index for removal
+
+            data1[IN[0],:] = np.nan
+            print('removing from dataset 1:',str(IN[0]))
+        else:
+            if direction:
+                IN = np.where(data2[:,I[0]]==np.nanmin(data2[:,I[0]]))[0] # index for removal
+            else:
+                IN = np.where(data2[:,I[0]]==np.nanmax(data2[:,I[0]]))[0] # index for removal
+
+            data2[IN[0],:] = np.nan
+            print('removing from dataset 2:',str(IN[0]))
+
+        [h,p] = ttest_ind(data1[~np.isnan(data1[:,0]),:], data2[~np.isnan(data2[:,0]),:], alternative='greater')
+        p2 = np.min(np.concatenate([p, 1-p])) # ttest in all variables
+
+        if np.min(np.concatenate([p, 1-p])) > alpha:
+            OK=1
+
+    return(data1, data2)
+
+def equalize1(data1, data2):
+    """
+    data1, data2 = equalize1(data1, data2)
+    put into two 2D numpy arrays (containing the variables you wan to "make equal")
+    the function will identify subjects that need to be removed and inserts NaN-s to their respective positions
+    - this function ONLY removes subjects from DATA2
+    """
+    from scipy.stats import ttest_ind
+    
+    alpha = 0.05
+    Nvars = data1.shape[1]
+    OK=0
+    N1 = data1.shape[0]
+    N2 = data2.shape[0]
+
+    # one sided test to check for differences
+    [h,p] = ttest_ind(data1, data2, alternative='greater')
+    p2 = np.min(np.concatenate([p, 1-p]))
+
+    if p2 > alpha:
+        OK = 1
+    
+    while OK == 0:
+        # pick the variable with the most significant effect
+        I = np.where(p2==np.min(p2))[0]
+        direction = p[I[0]]<0.05 # check the direction of the effect
+  
+        if direction:
+            IN = np.where(data2[:,I[0]]==np.nanmin(data2[:,I[0]]))[0] # index for removal
+        else:
+            IN = np.where(data2[:,I[0]]==np.nanmax(data2[:,I[0]]))[0] # index for removal
+
+        data2[IN[0],:] = np.nan
+        print('removing from dataset 2:',str(IN[0]))
+
+        [h,p] = ttest_ind(data1[~np.isnan(data1[:,0]),:], data2[~np.isnan(data2[:,0]),:], alternative='greater')
+        p2 = np.min(np.concatenate([p, 1-p])) # ttest in all variables
+
+        if np.min(np.concatenate([p, 1-p])) > alpha:
+            OK=1
+
+    return(data1, data2)
