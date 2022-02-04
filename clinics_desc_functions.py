@@ -999,7 +999,7 @@ def control_for(data, control):
     controlled = data - X @ beta
     return(controlled)
 
-def idp_concat_quality(target_dir, idp_ids):
+def idp_concat_quality(target_dir, idp_ids, suffix='predict'):
     """
     Concatenate the quality measures over all idps
     """
@@ -1008,7 +1008,7 @@ def idp_concat_quality(target_dir, idp_ids):
     qm = np.empty([len(idp_ids), len(quality_measures)])
     for i, idp in enumerate(idp_ids):
         for j, iq in enumerate(quality_measures):
-            qm[i,j] = np.genfromtxt(os.path.join(target_dir, idp, iq+'_predict.txt' ), delimiter=' ')
+            qm[i,j] = np.genfromtxt(os.path.join(target_dir, idp, iq+'_'+suffix +'.txt' ), delimiter=' ')
 
     qm = pd.DataFrame(qm, columns=quality_measures, index=idp_ids)
 
