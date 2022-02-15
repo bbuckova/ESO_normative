@@ -135,7 +135,7 @@ def en_qc(data, **kwargs):
     images_dir = kwargs.get('img_dir', None)
     show_img = kwargs.get('show_img', False)
 
-    indices = [i for i, s in enumerate(list(data.columns)) if 'Holes' in s]
+    indices = [i for i, s in enumerate(list(data.columns)) if ('Holes' in s) | ('holes' in s)]
     en_mean = (data.iloc[:,indices[0]]*-2+2 + data.iloc[:,indices[1]]*-2+2)/2
     site_median = en_mean.median()
     en_final = np.sqrt(np.absolute((en_mean-site_median)*(-1)))
@@ -874,7 +874,7 @@ def prepare_destrieux_plotting(data, hemi, method='counts'):
 
     view = plotting.view_surf(fs_plot, data_mapping, threshold=None, symmetric_cmap=True, cmap='jet', bg_map=fs_sulc)
     view
-    return(data_mapping,view)
+    return(data_mapping,view, fs_plot, fs_sulc)
     
 
 def reordered_heatmap(empir_pvals, **kwargs):
@@ -938,7 +938,7 @@ def fs_map_subcortical(data):
         data = Pandas Data Frame with either cols or indicies as ROI names
                 - one column/row only
         """
-
+        import enigmatoolbox
         if [True for i in data.index if 'Thalamus' in i]:
                 data = data.transpose()
 
