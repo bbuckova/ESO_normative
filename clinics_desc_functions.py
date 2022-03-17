@@ -538,7 +538,7 @@ def pretrained_adapt_controls(idp_ids, site_ids_tr, site_ids_te, pretrained_dir,
         os.chdir(idp_visit_dir)
         
         # extract and save the response variables for the test set
-        y_tec = df_te_cont[idp].to_numpy()
+        y_tec = df_tec[idp].to_numpy()
         y_te = df_te[idp].to_numpy()
 
         # save the variables
@@ -873,8 +873,7 @@ def prepare_destrieux_plotting(data, hemi, method='counts'):
     
 
     view = plotting.view_surf(fs_plot, data_mapping, threshold=None, symmetric_cmap=True, cmap='jet', bg_map=fs_sulc)
-    view
-    return(data_mapping,view, fs_plot, fs_sulc)
+    return(data_mapping, view, fs_plot, fs_sulc)
     
 
 def reordered_heatmap(empir_pvals, **kwargs):
