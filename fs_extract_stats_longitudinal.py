@@ -11,25 +11,29 @@ visit=sys.argv[1] # prints var1
 #save_res = '/home/barbora/Documents/Projects/Normative_Models/ESO/temp'
 #rootdir = '/hydradb/hydra_io/vypocty/skoch/freefs/freeSurfer/HCP_NUDZ_v7_ESO/A_FS_wo_preFS_all_links_20210907'
 #save_res = '/hydra-db/hydra_io/vypocty/buckova/PCN/tonda_fs_stats'
-rootdir = '/hydradb/hydra_io/vypocty/skoch/freefs/freeSurfer/HCP_NUDZ_v7_ESO/A_FS_wo_preFS_w_T2'
-save_res = '/hydradb/hydra_io/vypocty/buckova/PCN/tonda_fs_stats/T2_longit'
+#rootdir = '/hydradb/hydra_io/vypocty/skoch/freefs/freeSurfer/HCP_NUDZ_v7_ESO/A_FS_wo_preFS_w_T2'
+rootdir='/hydra/hydra_io/vypocty/skoch/HCP_NUDZ_v7_ESO/A_FS_wo_preFS_w_T2'
+save_res = '/hydradb/hydra_io/vypocty/buckova/PCN/tonda_fs_stats/T2_longit_2'
 
 os.chdir(rootdir)
 
 # everythiink relevant is called ESO*
 # work on all visits
-dirs = (glob.glob('ESO*_'+str(visit)+'.long.*_base'))
+
+dirs = (glob.glob('ESO*'+str(visit)+'.long.*_base'))
 
 ###
 # Extract information from aseg
 ###
 for idx, idir in enumerate(dirs):
+    print(idir)
     # load
     gen_inf = pd.read_csv(os.path.join(rootdir,idir,'stats/aseg.stats'), skiprows=14, skipfooter=90, header=None, delimiter=",",engine='python')
     # preparing general information data and header
     inf = gen_inf[3].to_numpy()
 
     # reading the white matter information
+    print(os.path.join(rootdir,idir,'stats/aseg.stats'))
     gen_sub = pd.read_csv(os.path.join(rootdir,idir,'stats/aseg.stats'), skiprows=76, header=None, delim_whitespace=True)
     # preparing wm data
     wm = np.concatenate(gen_sub.iloc[:,[3]].to_numpy())# 3 means only volumes are read
@@ -82,21 +86,36 @@ data_aseg = data_aseg.drop(columns=["VentricleChoroidVol", "id"])
 suffix = ["StructName", "NumVert", "SurfArea", "GrayVol", "thickness", "ThickStd", "MeanCurv", "GausCurv", "FoldInd", "CurvInd"]
 
 
+# Only extracting thickness this time
 # Only extracting thicness this time
 for which_var in range(1,5):
 
     for idx, idir in enumerate(dirs):
         #import pdb; pdb.set_trace()
         # extract data
+        # load ROI thicknesses
         lh = pd.read_csv(os.path.join(rootdir,idir,'stats/lh.aparc.a2009s.stats'), skiprows=61, header=None, delim_whitespace=True)
         rh = pd.read_csv(os.path.join(rootdir,idir,'stats/rh.aparc.a2009s.stats'), skiprows=61, header=None, delim_whitespace=True)
-        
+
+        # load average measurements
+        lh_cort = pd.read_csv(os.path.join(rootdir,idir,'stats/lh.aparc.a2009s.stats'), skiprows=18, skipfooter = 105, header=None, sep=',', engine='python', index_col=1)
+        lh_cort.drop(index=lh_cort.loc[pd.isnull(lh_cort[3])].index, inplace = True)
+
+        rh_cort = pd.read_csv(os.path.join(rootdir,idir,'stats/rh.aparc.a2009s.stats'), skiprows=18, skipfooter = 105, header=None, sep=',', engine='python', index_col=1)
+        rh_cort.drop(index=rh_cort.loc[pd.isnull(rh_cort[3])].index, inplace = True)
+
+
         hdr_lh = ('lh_' + lh[0] + '_' + suffix[which_var]).to_numpy()
+        hdr_lh_cort = ('lh_' + lh_cort.index.str.strip() + '_' + suffix[which_var]).to_numpy()
+
         hdr_rh = ('rh_' + rh[0] + '_' + suffix[which_var]).to_numpy()
-        colnames = np.append(hdr_lh,hdr_rh)
-        
+        hdr_rh_cort = ('rh_' + rh_cort.index.str.strip() + '_' + suffix[which_var]).to_numpy()
+
+        #colnames = np.append(hdr_lh,hdr_rh)
+        colnames = np.append(np.append(np.append(hdr_lh, hdr_lh_cort), hdr_rh),hdr_rh_cort)
+
         #colnames = np.append('Subject_id',colnames)
-        var = np.append(lh[which_var].to_numpy(), rh[which_var].to_numpy())
+        var = np.append(np.append(lh[which_var].to_numpy(), lh_cort[3].to_numpy()), np.append(rh[which_var].to_numpy(), rh_cort[3].to_numpy()))
 
         # extract subject id and visit
         name = idir.split('_')
@@ -105,6 +124,10 @@ for which_var in range(1,5):
         var = var[np.newaxis,:]
         
         idata = pd.DataFrame(var,columns = colnames, index = [name])
+        
+        col_to_delete = [i for i in idata.columns if 'Jensen' in i]
+        if len(col_to_delete) != 0:            
+            idata.drop(columns=col_to_delete, inplace=True)
 
         if idx == 0:
             data = idata
@@ -123,4 +146,3 @@ for which_var in range(1,5):
     merged = data_aseg.merge(data_aparc, how="inner", on="id")
     save_file = os.path.join(save_res,'fit_external_long_' + suffix[which_var] + '_'+str(visit)+'.txt')
     merged.to_csv(save_file, sep=';', index = True)
-        
