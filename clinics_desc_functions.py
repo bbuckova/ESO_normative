@@ -155,6 +155,7 @@ def en_qc(data, **kwargs):
     # remove the outliers
     id = en_final>10
     id_to_remove = id[id].index
+    data['Euler_number'] = en_final
     data_final = data.drop(axis=0, index=id_to_remove)
     return(data_final)
 
@@ -629,7 +630,7 @@ def pretrained_adapt_controls(idp_ids, site_ids_tr, site_ids_te, pretrained_dir,
                                         adaptvargroupfile = sitenum_file_ad,
                                         testvargroupfile = sitenum_file_te)                                
 
-def pretrained_adapt_small(idp, site_ids_tr, site_ids_te, pretrained_dir, idp_visit_dir, idp_dir, df_ad, df_te):
+def pretrained_adapt_small(idp, site_ids_tr, site_ids_te, pretrained_dir, idp_visit_dir, df_ad, df_te):
     """
     This function is specifically used in the examination of the adaptation data effect
     The cycle over idps is taken out in to acoomodate for an additional layer of directories
@@ -671,7 +672,7 @@ def pretrained_adapt_small(idp, site_ids_tr, site_ids_te, pretrained_dir, idp_vi
         yhat_te, s2_te, Z = predict(cov_file_te, 
                                     alg='blr', 
                                     respfile=resp_file_te, 
-                                    model_path=os.path.join(idp_dir,'Models'))
+                                    model_path=os.path.join(pretrained_dir,'Models'))
     else:
         print('Some sites missing from the training data. Adapting model')
         
@@ -704,11 +705,12 @@ def pretrained_adapt_small(idp, site_ids_tr, site_ids_te, pretrained_dir, idp_vi
         yhat_te, s2_te, Z = predict(cov_file_te, 
                                     alg = 'blr', 
                                     respfile = resp_file_te, 
-                                    model_path = os.path.join(idp_dir,'Models'),
+                                    model_path = os.path.join(pretrained_dir,'Models'),
                                     adaptrespfile = resp_file_ad,
                                     adaptcovfile = cov_file_ad,
                                     adaptvargroupfile = sitenum_file_ad,
                                     testvargroupfile = sitenum_file_te)
+
 
 
 
@@ -802,6 +804,9 @@ def prepare_destrieux_plotting(data, hemi, method='counts'):
             - this is only relevant if there is an ROI missing
             - counts/correlations = 0
             - pvals = 1
+    returns: return(data_mapping, view, fs_plot, fs_sulc)
+
+    Use: view = plotting.view_surf(fs_plot, data_mapping, threshold=None, symmetric_cmap=True, cmap='jet', bg_map=fs_sulc)
     """
     # packages
     from nilearn import datasets
@@ -1112,3 +1117,48 @@ def equalize1(data1, data2):
             OK=1
 
     return(data1, data2)
+
+
+def plot_longitudinal(v1_age, v2_age,  v1_Yhat, v2_Yhat, to_plot = True, v1_col='lightblue', v2_col='lightcoral', tick_col = 'gray', title = '', xlabel = 'Age', ylabel = 'Yhat', fig=None, ax=None, iplot=0):
+    """
+    The function will plot the longitudinal data as connected dots
+    plot_longitudinal(v1_age, v2_age,  v1_Yhat, v2_Yhat, to_plot = True, v1_col='lightblue', v2_col='lightcoral', tick_col = 'gray', title = '', xlabel = 'Age', ylabel = 'Yhat')
+    
+    v1_age, v2_age... what will be plotted on x axis, ideally 1xn 2D array
+    v1_Yhat, v2_Yhat... what will be plotted on y axis, ideally 1xn 2D array
+    to_plot... if True, the plot will be shown, if False, the plot will be returned
+    v1_col, v2_col, tick_col... color of the dots for the first and second visit
+    title, xlabel, ylabel... title and labels of the plot
+    """
+    def check_dimensions(vector):
+        """
+        check_dimensions(vector)
+        reshapes array into 2D 1xn array
+        """
+        if len(vector.shape) == 1:
+            return vector[np.newaxis,:]
+        elif len(vector.shape) == 2:
+            if vector.shape[0] > vector.shape[1]:
+                return vector.T
+            else:
+                return vector
+        else:
+            return False
+
+    v1_age = check_dimensions(v1_age)
+    v2_age = check_dimensions(v2_age)
+    v1_Yhat = check_dimensions(v1_Yhat)
+    v2_Yhat = check_dimensions(v2_Yhat)
+    
+    x_coords = np.concatenate([v1_age, v2_age],axis=0)
+    y_coords = np.concatenate([v1_Yhat, v2_Yhat],axis=0)
+
+    if to_plot:
+        if fig is None:
+            fig, ax = plt.subplots(1,1, figsize=(5,5))
+        
+        ax.plot(x_coords, y_coords, color=tick_col)
+        ax.scatter(v1_age, v1_Yhat, color=v1_col, s=20, alpha = 0.5)
+        ax.scatter(v2_age, v2_Yhat, color=v2_col, s=20, alpha = 0.5)
+
+    return ax
