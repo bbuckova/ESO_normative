@@ -29,7 +29,7 @@ def pretrained_adapt_controls(idp_ids, site_ids_tr, site_ids_te, pretrained_dir,
 
     for idp_num, idp in enumerate(idp_ids): 
         print('Running IDP', idp_num, idp, ':')
-        idp_dir = os.path.join(pretrained_dir,'models','lifespan_57K_82sites', idp)
+        idp_dir = os.path.join(pretrained_dir, idp)
         idp_visit_dir = os.path.join(visit_dir,idp)
         os.makedirs(idp_visit_dir, exist_ok=True)
         os.chdir(idp_visit_dir)
@@ -151,7 +151,7 @@ def pretrained_adapt(idp_ids, site_ids_tr, site_ids_te, pretrained_dir, visit_di
 
     for idp_num, idp in enumerate(idp_ids): 
         print('Running IDP', idp_num, idp, ':')
-        idp_dir = os.path.join(pretrained_dir,'models','lifespan_57K_82sites', idp)
+        idp_dir = os.path.join(pretrained_dir, idp)
         idp_visit_dir = os.path.join(visit_dir,idp)
         os.makedirs(idp_visit_dir, exist_ok=True)
         os.chdir(idp_visit_dir)
