@@ -1,6 +1,6 @@
 # Functions neede for the simulation study (will be later transfered to custom --- after debugging)
 # Function to generate Subjects
-def generate_longitudinal_subjects_template(model_path, random_idp, simulations_dir, no_females = 1000):
+def generate_longitudinal_subjects_template(model_path, random_idp, simulations_dir, no_females = 1000, age='all'):
     """
     generates template and covariance matrix for longitudinal subjects
     template1, template2 = generate_longitudinal_subjects_template(model_path, random_idp, simulations_dir, no_females = 1000)
@@ -14,8 +14,12 @@ def generate_longitudinal_subjects_template(model_path, random_idp, simulations_
     np.random.seed(42)
 
     # Create template dataset for V1 and V2
-    v1_age = np.random.randint(18,60,size=no_females*2)
-    v2_age = v1_age+1
+    if age=='all':
+        v1_age = np.random.randint(18,60,size=no_females*2)
+        v2_age = v1_age+1
+    else:
+        v1_age = np.ones(no_females*2)*age
+        v2_age = v1_age+1
 
     sex = np.concatenate([np.zeros([no_females]),np.ones([no_females])])
     id = ['c'+str(i) for i in range(1,no_females*2+1)]
@@ -251,6 +255,47 @@ def var_test(x, va0, direction = "two-tailed", alpha = 0.05):
         else:
             return pval, "H_0 not rejected"
 
+# Extract "A" covariance from the original model
+def extract_orig_covariation(covars, dir_to_extract, idp, visit=1):
+    from pcntoolkit.util.utils import create_design_matrix
+    from pcntoolkit.normative import predict
+
+    # extract the covariation from the MODEL THAT NEEDS TO BE ADAPTED
+    # create dummy data and the design matrix
+    model_name, site_names, site_ids_tr, idp_ids = custom.pretrained_ini(sites=82)
+
+    X_dummy = create_design_matrix(covars, 
+                                    xmin=-5, 
+                                    xmax=110, 
+                                    site_ids=None, 
+                                    all_sites=site_ids_tr)
+
+    # save the dummy covariates
+    cov_file_dummy = os.path.join(dir_to_extract, 'V'+str(visit), idp, 'cov_bspline_dummy.txt')
+    np.savetxt(cov_file_dummy, X_dummy)
+
+    # make predictions
+    pretrained_idp = os.path.join('/home/barbora/Documents/Projects/Normative_Models/ESO/braincharts', 'models', 'lifespan_57K_82sites', idp)
+
+    yhat, orig_s2 = predict(cov_file_dummy, 
+                        alg = 'blr', 
+                        respfile = None, 
+                        model_path = os.path.join(pretrained_idp,'Models'), 
+                        outputsuffix = '_dummy')
+
+    # load the normative model
+    with open(os.path.join(pretrained_idp,'Models', 'NM_0_0_estimate.pkl'), 'rb') as handle:
+        nm = pickle.load(handle) 
+
+    # get the warp and warp parameters
+    W = nm.blr.warp
+    warp_param = nm.blr.hyp[1:nm.blr.warp.get_n_params()+1] 
+
+    orig_beta, junk1, junk2 = nm.blr._parse_hyps(nm.blr.hyp, X_dummy)
+    orig_s2n = 1/orig_beta # variation (aleatoric uncertainty)
+    orig_s2s = orig_s2 - orig_s2n # modelling uncertainty (epistemic uncertainty)
+
+    return orig_beta, orig_s2n, orig_s2s
 
 
 # LONGITUDINAL PLOTTING FUNCTION
@@ -310,15 +355,11 @@ from pcntoolkit.util.utils import create_design_matrix
 import xarray as xr
 from scipy.stats import ttest_1samp
 
-# Paths to directoris
-project_dir = ('/home/barbora/Documents/Projects/Normative_Models')
-simulations_dir = '/home/barbora/Documents/Projects/Normative_Models/ESO/simulations'
-models_dir = '/home/barbora/Documents/Projects/Normative_Models/ESO/braincharts/models/lifespan_57K_82sites/'
-models_pretrained_all = '/home/barbora/Documents/Projects/Normative_Models/ESO/braincharts/'
-paper_im_dir = os.path.join(project_dir,'ESO', 'draft', 'img')
-
+# Run the simulation
 # custom functions
 code_dir = ('/home/barbora/Documents/Projects/Normative_Models/ESO/code')
+models_dir = '/home/barbora/Documents/Projects/Normative_Models/ESO/braincharts/models/lifespan_57K_82sites/'
+simulations_dir = '/home/barbora/Documents/Projects/Normative_Models/ESO/simulations'
 os.chdir(code_dir)
 import clinics_desc_functions as custom
 
@@ -331,12 +372,13 @@ thick_idp = [i for i in idp_ids if 'thick' in i]
 # Takes the IDP to process as an input
 import sys
 random_idp_id = sys.argv[1]
+age = sys.argv[2]
 print(random_idp_id)
 random_idp=thick_idp[int(random_idp_id)] # prints var1
 
 
 # create empty data array (3D) to store the results in
-data = np.zeros([len(np.arange(1, 5.5, 0.5)) * len(np.arange(0.5, 3.5, 0.5)), 10])
+data = np.zeros([len(np.arange(1, 6, 1)) * len(np.arange(0.5, 3.5, 0.5)), 14])
 
 ###
 # cycle is cancelled, this is going to be paralelized for effeciency
@@ -346,21 +388,26 @@ print(random_idp)
 # one random model - just trying to get some reasonable coeffitients
 model_path = os.path.join(models_dir,random_idp,'Models')
 
+# generate the template for the analysis
+v1_cont_temp, v2_cont_temp = generate_longitudinal_subjects_template(model_path, random_idp, simulations_dir, no_females = 100, age=age)
+v1_pat_temp, v2_pat_temp = generate_longitudinal_subjects_template(model_path, random_idp, simulations_dir, no_females = 20, age=age)
+
+
+# getting A variance based only on the covariates
+not_imp, not_imp2, v1_pat_temp['s2s'] = extract_orig_covariation(v1_pat_temp[['age','sex']], simulations_dir, random_idp, visit=1)
+not_imp, not_imp2, v2_pat_temp['s2s'] = extract_orig_covariation(v2_pat_temp[['age','sex']], simulations_dir, random_idp, visit=2)
+
 # to define row in the data
 irow = 0
-for ivar_population in np.arange(1, 5.5, 0.5):
+for ivar_population in np.arange(1, 6, 1):
     print(str(ivar_population))
     for ivar_noise in np.arange(0.5, 3.5, 0.5):
-
-        # generate the template for the analysis
-        v1_cont, v2_cont = generate_longitudinal_subjects_template(model_path, random_idp, simulations_dir, no_females = 1000)
-        v1_pat, v2_pat = generate_longitudinal_subjects_template(model_path, random_idp, simulations_dir, no_females = 100)
 
         ###
         # Generate controls and patients
         ###
-        v1_cont, v2_cont, s2_model = add_noise_to_subjects(v1_cont, v2_cont, model_path, random_idp, var_population = 1, var_noise = 0.5, effect='none', effect_size = 0, effect_var = 0, seed = irow)
-        v1_pat, v2_pat, s2_model = add_noise_to_subjects(v1_pat, v2_pat, model_path, random_idp, var_population = 1, var_noise = 0.5, effect='none', effect_size = 0, effect_var = 0, seed = irow)
+        v1_cont, v2_cont, s2_model = add_noise_to_subjects(v1_cont_temp, v2_cont_temp, model_path, random_idp, var_population = 1, var_noise = 0.5, effect='none', effect_size = 0, effect_var = 0, seed = irow)
+        v1_pat, v2_pat, s2_model = add_noise_to_subjects(v1_pat_temp, v2_pat_temp, model_path, random_idp, var_population = 1, var_noise = 0.5, effect='none', effect_size = 0, effect_var = 0, seed = irow)
         
         ###
         # potential effect - not now, only checking controls
@@ -378,6 +425,7 @@ for ivar_population in np.arange(1, 5.5, 0.5):
 
         nom = ((v2_pat[random_idp+'_y'] - v2_pat[random_idp+'_yhat']) - (v1_pat[random_idp+'_y'] - v1_pat[random_idp+'_yhat']))
         pat_z = nom/np.sqrt(cont_var)
+        pat_A_z = nom/np.sqrt(cont_var+v1_pat['s2s']*2+v2_pat['s2s']*2)
 
         # print into the dataframe
         data[irow, 0] = ivar_population
@@ -389,7 +437,11 @@ for ivar_population in np.arange(1, 5.5, 0.5):
         data[irow, 6] = pat_z.mean()
         data[irow, 7] = ttest_1samp(pat_z, 0)[1]
         data[irow, 8] = pat_z.var()
-        data[irow, 9] = var_test(pat_z.to_numpy(), 1)[0]
+        data[irow, 9] = var_test(pat_z.to_numpy(), 1)[0]     
+        data[irow, 10] = pat_A_z.mean()
+        data[irow, 11] = ttest_1samp(pat_A_z, 0)[1]
+        data[irow, 12] = pat_A_z.var()
+        data[irow, 13] = var_test(pat_A_z.to_numpy(), 1)[0]
 
         irow += 1
         del v1_cont, v2_cont, v1_pat, v2_pat
@@ -401,5 +453,11 @@ for ivar_population in np.arange(1, 5.5, 0.5):
         
 
 
-data = pd.DataFrame(data, columns = ['var_pop', 'var_noise', 'cont_z_mean', 'cont_z_mean_p', 'cont_z_var', 'cont_z_var_p', 'pat_z_mean', 'pat_z_mean_p', 'pat_z_var', 'pat_z_var_p'])
-data.to_csv(os.path.join(simulations_dir, 'simulations_'+random_idp+'.csv'), sep=' ')
+data = pd.DataFrame(data, columns = ['var_pop', 'var_noise', 
+                                    'cont_z_mean', 'cont_z_mean_p', 'cont_z_var', 'cont_z_var_p', 
+                                    'pat_z_mean', 'pat_z_mean_p', 'pat_z_var', 'pat_z_var_p', 
+                                    'pat_A_z_mean', 'pat_A_z_mean_p', 'pat_A_z_var', 'pat_A_z_var_p'])
+
+data.index = data['var_pop'].astype(str) + '_' + data['var_noise'].astype(str)                                
+
+data.to_csv(os.path.join(simulations_dir, 'simulations_'+random_idp+'_'+str(age)+'.csv'), sep=' ')
