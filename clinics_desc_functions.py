@@ -734,14 +734,18 @@ def set_seed(seed=None, seed_torch=False):
     print(f'Random seed {seed} has been set.')
 
 
-def pretrained_ini():
+def pretrained_ini(sites = 82):
     """
     Get the basic parameters of pretrained models
     model_name, site_names, site_ids_tr, idp_ids = pretrained_ini()
     """
     pretrained_dir = ('/home/barbora/Documents/Projects/Normative_Models/ESO/braincharts')
-    model_name = 'lifespan_57K_82sites'
-    site_names = 'site_ids_82sites.txt'
+    if sites == 82:
+        model_name = 'lifespan_57K_82sites'
+        site_names = 'site_ids_82sites.txt'
+    elif sites == 83:
+        model_name = 'lifespan_57K_83sites'
+        site_names = 'site_ids_83sites_with_cz_nimh.txt'
 
     # load a set of site ids from this model. This must match the training data
     with open(os.path.join(pretrained_dir,'docs', site_names)) as f:
