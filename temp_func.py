@@ -70,6 +70,12 @@ def pretrained_adapt_controls(idp_ids, site_ids_tr, site_ids_te, pretrained_dir,
             print('All sites are present in the training data')
             
             # just make predictions
+            y, yhat_tec, s2_tec, Z = predict(cov_file_tec, 
+                                        alg='blr', 
+                                        respfile=resp_file_tec, 
+                                        model_path=os.path.join(idp_dir,'Models'),
+                                        outputsuffix = 'cont_test')
+
             y, yhat_te, s2_te, Z = predict(cov_file_te, 
                                         alg='blr', 
                                         respfile=resp_file_te, 
