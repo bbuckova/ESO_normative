@@ -356,7 +356,7 @@ import xarray as xr
 from scipy.stats import ttest_1samp
 from pingouin import normality
 from scipy.stats import kstest
-import scipy
+import scipy    
 
 # Run the simulation
 # custom functions
@@ -412,8 +412,8 @@ for ivar_population in np.arange(1, 6, 1):
         ###
         # Generate controls and patients
         ###
-        v1_cont, v2_cont, s2_model = add_noise_to_subjects(v1_cont_temp, v2_cont_temp, model_path, random_idp, var_population = 1, var_noise = 0.5, effect='none', effect_size = 0, effect_var = 0, seed = irow)
-        v1_pat, v2_pat, s2_model = add_noise_to_subjects(v1_pat_temp, v2_pat_temp, model_path, random_idp, var_population = 1, var_noise = 0.5, effect='none', effect_size = 0, effect_var = 0, seed = irow)
+        v1_cont, v2_cont, s2_model = add_noise_to_subjects(v1_cont_temp, v2_cont_temp, model_path, random_idp, var_population = ivar_population, var_noise = ivar_noise, effect='none', effect_size = 0, effect_var = 0, seed = irow)
+        v1_pat, v2_pat, s2_model = add_noise_to_subjects(v1_pat_temp, v2_pat_temp, model_path, random_idp, var_population = ivar_population, var_noise = ivar_noise, effect='none', effect_size = 0, effect_var = 0, seed = irow)
         
         ###
         # potential effect - not now, only checking controls
@@ -433,6 +433,14 @@ for ivar_population in np.arange(1, 6, 1):
         pat_z = nom/np.sqrt(cont_var)
         pat_A_z = nom/np.sqrt(cont_var+v1_pat['s2s']*2+v2_pat['s2s']*2)
 
+        if ivar_population == 1 and ivar_noise == 0.5:
+            df_pat_z = pd.DataFrame(pat_z, columns = ['var_'+str(ivar_population)+'_'+str(ivar_noise).replace('.','')])
+            df_pat_A_z = pd.DataFrame(pat_A_z, columns = ['var_'+str(ivar_population)+'_'+str(ivar_noise).replace('.','')])
+        else:
+            df_pat_z['var_'+str(ivar_population)+'_'+str(ivar_noise).replace('.','')] = pat_z
+            df_pat_A_z['var_'+str(ivar_population)+'_'+str(ivar_noise).replace('.','')] = pat_A_z
+
+        
         # print into the dataframe
         data[irow, 0] = ivar_population
         data[irow, 1] = ivar_noise
@@ -476,3 +484,5 @@ data = pd.DataFrame(data, columns = ['var_pop', 'var_noise',
 data.index = data['var_pop'].astype(str) + '_' + data['var_noise'].astype(str)                                
 
 data.to_csv(os.path.join(simulations_dir, 'simulations_'+random_idp+'_'+str(age)+'.csv'), sep=' ')
+df_pat_z.to_csv(os.path.join(simulations_dir, 'simulations_' + random_idp + '_' + str(age) + '_pat_z.csv'), sep=" ")
+df_pat_A_z.to_csv(os.path.join(simulations_dir, 'simulations_' + random_idp + '_' + str(age) + '_pat_A_z.csv'), sep=" ")
