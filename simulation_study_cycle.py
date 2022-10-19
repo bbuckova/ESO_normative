@@ -354,6 +354,9 @@ import matplotlib.pyplot as plt
 from pcntoolkit.util.utils import create_design_matrix
 import xarray as xr
 from scipy.stats import ttest_1samp
+from pingouin import normality
+from scipy.stats import kstest
+import scipy
 
 # Run the simulation
 # custom functions
@@ -378,7 +381,7 @@ random_idp=thick_idp[int(random_idp_id)] # prints var1
 
 
 # create empty data array (3D) to store the results in
-data = np.zeros([len(np.arange(1, 6, 1)) * len(np.arange(0.5, 3.5, 0.5)), 14])
+data = np.zeros([len(np.arange(1, 6, 1)) * len(np.arange(0.5, 3.5, 0.5)), 20])
 
 ###
 # cycle is cancelled, this is going to be paralelized for effeciency
@@ -389,9 +392,12 @@ print(random_idp)
 model_path = os.path.join(models_dir,random_idp,'Models')
 
 # generate the template for the analysis
-v1_cont_temp, v2_cont_temp = generate_longitudinal_subjects_template(model_path, random_idp, simulations_dir, no_females = 100, age=age)
-v1_pat_temp, v2_pat_temp = generate_longitudinal_subjects_template(model_path, random_idp, simulations_dir, no_females = 20, age=age)
-
+if age == "all":
+    v1_cont_temp, v2_cont_temp = generate_longitudinal_subjects_template(model_path, random_idp, simulations_dir, no_females = 1000, age=age)
+    v1_pat_temp, v2_pat_temp = generate_longitudinal_subjects_template(model_path, random_idp, simulations_dir, no_females = 100, age=age)
+else:
+    v1_cont_temp, v2_cont_temp = generate_longitudinal_subjects_template(model_path, random_idp, simulations_dir, no_females = 1000, age=age)
+    v1_pat_temp, v2_pat_temp = generate_longitudinal_subjects_template(model_path, random_idp, simulations_dir, no_females = 100, age=age)
 
 # getting A variance based only on the covariates
 not_imp, not_imp2, v1_pat_temp['s2s'] = extract_orig_covariation(v1_pat_temp[['age','sex']], simulations_dir, random_idp, visit=1)
@@ -430,18 +436,27 @@ for ivar_population in np.arange(1, 6, 1):
         # print into the dataframe
         data[irow, 0] = ivar_population
         data[irow, 1] = ivar_noise
-        data[irow, 2] = cont_z.mean()
-        data[irow, 3] = ttest_1samp(cont_z, 0)[1]
-        data[irow, 4] = cont_z.var()
-        data[irow, 5] = var_test(cont_z.to_numpy(), 1)[0]
-        data[irow, 6] = pat_z.mean()
-        data[irow, 7] = ttest_1samp(pat_z, 0)[1]
-        data[irow, 8] = pat_z.var()
-        data[irow, 9] = var_test(pat_z.to_numpy(), 1)[0]     
-        data[irow, 10] = pat_A_z.mean()
-        data[irow, 11] = ttest_1samp(pat_A_z, 0)[1]
-        data[irow, 12] = pat_A_z.var()
-        data[irow, 13] = var_test(pat_A_z.to_numpy(), 1)[0]
+        data[irow, 2] = normality(cont_z)['pval'].to_numpy()[0]
+        data[irow, 3] = kstest(cont_z, scipy.stats.norm.cdf)[1]
+        data[irow, 4] = cont_z.mean()
+        data[irow, 5] = ttest_1samp(cont_z, 0)[1]
+        data[irow, 6] = cont_z.var()
+        data[irow, 7] = var_test(cont_z.to_numpy(), 1)[0]
+
+
+        data[irow, 8] = normality(pat_z)['pval'].to_numpy()[0]
+        data[irow, 9] = kstest(pat_z, scipy.stats.norm.cdf)[1]
+        data[irow, 10] = pat_z.mean()
+        data[irow, 11] = ttest_1samp(pat_z, 0)[1]
+        data[irow, 12] = pat_z.var()
+        data[irow, 13] = var_test(pat_z.to_numpy(), 1)[0]     
+
+        data[irow, 14] = normality(pat_A_z)['pval'].to_numpy()[0]
+        data[irow, 15] = kstest(pat_z, scipy.stats.norm.cdf)[1]
+        data[irow, 16] = pat_A_z.mean()
+        data[irow, 17] = ttest_1samp(pat_A_z, 0)[1]
+        data[irow, 18] = pat_A_z.var()
+        data[irow, 19] = var_test(pat_A_z.to_numpy(), 1)[0]
 
         irow += 1
         del v1_cont, v2_cont, v1_pat, v2_pat
@@ -454,9 +469,9 @@ for ivar_population in np.arange(1, 6, 1):
 
 
 data = pd.DataFrame(data, columns = ['var_pop', 'var_noise', 
-                                    'cont_z_mean', 'cont_z_mean_p', 'cont_z_var', 'cont_z_var_p', 
-                                    'pat_z_mean', 'pat_z_mean_p', 'pat_z_var', 'pat_z_var_p', 
-                                    'pat_A_z_mean', 'pat_A_z_mean_p', 'pat_A_z_var', 'pat_A_z_var_p'])
+                                    'cont_p_normal','cont_p_ks_normal','cont_z_mean', 'cont_z_mean_p', 'cont_z_var', 'cont_z_var_p', 
+                                    'pat_p_normal','pat_p_ks_normal','pat_z_mean', 'pat_z_mean_p', 'pat_z_var', 'pat_z_var_p', 
+                                    'pat_A_p_normal','pat_A_p_ks_normal','pat_A_z_mean', 'pat_A_z_mean_p', 'pat_A_z_var', 'pat_A_z_var_p'])
 
 data.index = data['var_pop'].astype(str) + '_' + data['var_noise'].astype(str)                                
 
